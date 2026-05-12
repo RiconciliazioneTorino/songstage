@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: theme('colors.bg');
+  color: #f5f5f5;
+  font-family: theme('fontFamily.mono');
+}
+
+.song-line { display: flex; flex-wrap: wrap; align-items: flex-end; }
+.pair { display: inline-flex; flex-direction: column; white-space: pre; }
+.pair .chord { color: theme('colors.chord'); font-weight: bold; font-size: 0.85em; line-height: 1; min-height: 1em; }
+.pair .chord.empty { visibility: hidden; }
+.pair .lyric { line-height: 1.2; }
+.section-label {
+  color: theme('colors.section');
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.85em;
+}
