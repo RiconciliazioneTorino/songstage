@@ -18,10 +18,11 @@ export default async function SongPage({
 
   const { data: song } = await supabase
     .from('songs')
-    .select('id, title, artist, original_key, default_tempo, current_version_id, church_id')
+    .select('id, title, artist, original_key, default_tempo, current_version_id, church_id, parent_song_id, parent:songs!parent_song_id(id, title)')
     .eq('id', songId)
     .maybeSingle();
   if (!song) notFound();
+  const parent = (song as any).parent as { id: string; title: string } | null;
 
   const { data: myMembership } = await supabase
     .from('church_members')
@@ -84,6 +85,18 @@ export default async function SongPage({
             </div>
           )}
         </div>
+        {parent && (
+          <div className="mt-3 text-xs text-zinc-500">
+            Adottata da{' '}
+            <Link
+              href={`/library/${parent.id}`}
+              className="text-accent hover:underline"
+            >
+              {parent.title}
+            </Link>{' '}
+            (libreria canonica)
+          </div>
+        )}
         <SongViewer body={body} />
         <AudioPanel songId={songId} audios={(audios as any) ?? []} canEdit={canEdit} />
         <VersionsPanel

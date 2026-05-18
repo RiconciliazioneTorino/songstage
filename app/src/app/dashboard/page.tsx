@@ -65,6 +65,18 @@ export default async function Dashboard() {
           </Link>
         </div>
       )}
+
+      <div className="mt-10 pt-6 border-t border-border">
+        <Link
+          href="/library"
+          className="block rounded-lg border border-border bg-panel p-4 hover:border-accent transition"
+        >
+          <div className="font-medium">📚 Libreria canonica</div>
+          <div className="text-xs text-zinc-500 mt-0.5">
+            Base condivisa di canzoni curate, adottabili da ogni chiesa
+          </div>
+        </Link>
+      </div>
     </main>
   );
 }
