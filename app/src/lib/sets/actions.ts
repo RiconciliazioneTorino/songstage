@@ -46,6 +46,8 @@ export async function addSongToSet(
   songId: string
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
 
   const { data: maxRow } = await supabase
     .from('set_items')
@@ -56,9 +58,45 @@ export async function addSongToSet(
     .maybeSingle();
   const nextPosition = (maxRow?.position ?? 0) + 1;
 
+  // Pre-select the most specific variation the user has visible:
+  // user > band (most recent) > base
+  let variationId: string | null = null;
+
+  const { data: userVar } = await supabase
+    .from('song_variations')
+    .select('id')
+    .eq('song_id', songId)
+    .eq('scope', 'user')
+    .eq('scope_user_id', user.id)
+    .maybeSingle();
+  if (userVar) {
+    variationId = userVar.id;
+  } else {
+    const { data: bandVars } = await supabase
+      .from('song_variations')
+      .select('id, scope_band_id, created_at')
+      .eq('song_id', songId)
+      .eq('scope', 'band')
+      .order('created_at', { ascending: false });
+    if ((bandVars ?? []).length > 0) {
+      const { data: myBands } = await supabase
+        .from('band_members')
+        .select('band_id')
+        .eq('user_id', user.id);
+      const myBandIds = new Set((myBands ?? []).map((b: any) => b.band_id));
+      const match = (bandVars ?? []).find((v: any) => myBandIds.has(v.scope_band_id));
+      variationId = match?.id ?? null;
+    }
+  }
+
   const { error } = await supabase
     .from('set_items')
-    .insert({ set_id: setId, song_id: songId, position: nextPosition });
+    .insert({
+      set_id: setId,
+      song_id: songId,
+      position: nextPosition,
+      variation_id: variationId,
+    });
   if (error) return { error: error.message };
 
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
