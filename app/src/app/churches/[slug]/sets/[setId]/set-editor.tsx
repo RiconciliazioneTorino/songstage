@@ -5,13 +5,21 @@ import { useRouter } from 'next/navigation';
 import { addSongToSet, moveSetItem, removeSetItem, updateSetItem } from '@/lib/sets/actions';
 
 type Song = { id: string; title: string; artist: string | null; original_key: string | null };
+type Variation = {
+  id: string;
+  name: string;
+  scope: 'church' | 'band' | 'user';
+  band?: { name: string } | null;
+};
 type Item = {
   id: string;
   position: number;
   transpose_semitones: number;
   capo: number;
+  variation_id: string | null;
   performance_notes: string | null;
   song: Song;
+  availableVariations: Variation[];
 };
 
 export function SetEditor({
@@ -54,6 +62,12 @@ export function SetEditor({
                     {item.song.artist ? ` · ${item.song.artist}` : ''}
                   </div>
                 </div>
+                <VariationPicker
+                  itemId={item.id}
+                  current={item.variation_id}
+                  variations={item.availableVariations}
+                  onChange={refresh}
+                />
                 <TransposeControl
                   itemId={item.id}
                   value={item.transpose_semitones}
@@ -153,6 +167,42 @@ export function SetEditor({
         </div>
       )}
     </div>
+  );
+}
+
+function VariationPicker({
+  itemId,
+  current,
+  variations,
+  onChange,
+}: {
+  itemId: string;
+  current: string | null;
+  variations: Variation[];
+  onChange: () => void;
+}) {
+  if (variations.length === 0) return null;
+
+  return (
+    <select
+      value={current ?? ''}
+      onChange={async (e) => {
+        const val = e.target.value || null;
+        await updateSetItem(itemId, { variation_id: val });
+        onChange();
+      }}
+      className="text-xs px-1 py-0.5 rounded bg-bg border border-border max-w-[8rem]"
+      title="Versione usata nel set"
+    >
+      <option value="">Base</option>
+      {variations.map((v) => (
+        <option key={v.id} value={v.id}>
+          {v.name}
+          {v.scope === 'band' && v.band ? ` (${v.band.name})` : ''}
+          {v.scope === 'user' ? ' (personale)' : ''}
+        </option>
+      ))}
+    </select>
   );
 }
 

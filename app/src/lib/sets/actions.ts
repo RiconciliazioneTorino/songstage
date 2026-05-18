@@ -215,7 +215,12 @@ export async function unshareSetWithBand(
 
 export async function updateSetItem(
   itemId: string,
-  patch: { transpose_semitones?: number; capo?: number; performance_notes?: string | null }
+  patch: {
+    transpose_semitones?: number;
+    capo?: number;
+    performance_notes?: string | null;
+    variation_id?: string | null;
+  }
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('set_items').update(patch).eq('id', itemId);

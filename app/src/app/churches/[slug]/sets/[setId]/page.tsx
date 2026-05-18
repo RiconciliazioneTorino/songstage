@@ -31,7 +31,7 @@ export default async function SetDetailPage({
 
   const { data: items } = await supabase
     .from('set_items')
-    .select('id, position, transpose_semitones, capo, performance_notes, song:songs(id, title, artist, original_key)')
+    .select('id, position, transpose_semitones, capo, variation_id, performance_notes, song:songs(id, title, artist, original_key)')
     .eq('set_id', setId)
     .order('position');
 
@@ -40,6 +40,28 @@ export default async function SetDetailPage({
     .select('id, title, artist, original_key')
     .eq('church_id', church.id)
     .order('title');
+
+  // Variations visible to the user for the songs in this set
+  const songIds = (items ?? []).map((i: any) => i.song?.id).filter(Boolean);
+  let visibleVariations: any[] = [];
+  if (songIds.length > 0) {
+    const { data: vars } = await supabase
+      .from('song_variations')
+      .select('id, song_id, name, scope, scope_user_id, scope_band_id, band:bands(name)')
+      .in('song_id', songIds);
+    visibleVariations = vars ?? [];
+  }
+  const variationsBySong = new Map<string, any[]>();
+  for (const v of visibleVariations) {
+    const list = variationsBySong.get(v.song_id) ?? [];
+    list.push(v);
+    variationsBySong.set(v.song_id, list);
+  }
+  // Attach variations to items
+  const itemsWithVariations = ((items as any[]) ?? []).map((i) => ({
+    ...i,
+    availableVariations: variationsBySong.get(i.song?.id) ?? [],
+  }));
 
   const { data: shares } = await supabase
     .from('set_shares')
@@ -68,7 +90,7 @@ export default async function SetDetailPage({
 
       <SetEditor
         setId={set.id}
-        items={(items as any) ?? []}
+        items={itemsWithVariations as any}
         availableSongs={(songs as any) ?? []}
       />
 
