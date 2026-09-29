@@ -41,6 +41,45 @@ export async function createSet(
   redirect(`/churches/${churchSlug}/sets/${set.id}`);
 }
 
+export async function createSetFromSongs(
+  churchSlug: string,
+  name: string,
+  songIds: string[]
+): Promise<{ error?: string; setId?: string }> {
+  const cleanName = name.trim();
+  if (!cleanName) return { error: 'Il nome è obbligatorio' };
+  if (songIds.length === 0) return { error: 'Seleziona almeno una canzone' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  const { data: church } = await supabase
+    .from('churches')
+    .select('id')
+    .eq('slug', churchSlug)
+    .maybeSingle();
+  if (!church) return { error: 'Chiesa non trovata' };
+
+  const { data: set, error: setErr } = await supabase
+    .from('sets')
+    .insert({ church_id: church.id, name: cleanName, created_by: user.id })
+    .select('id')
+    .single();
+  if (setErr) return { error: setErr.message };
+
+  const rows = songIds.map((songId, i) => ({
+    set_id: set.id,
+    song_id: songId,
+    position: i + 1,
+  }));
+  const { error: itemsErr } = await supabase.from('set_items').insert(rows);
+  if (itemsErr) return { error: itemsErr.message };
+
+  revalidatePath(`/churches/${churchSlug}/sets`);
+  return { setId: set.id };
+}
+
 export async function addSongToSet(
   setId: string,
   songId: string

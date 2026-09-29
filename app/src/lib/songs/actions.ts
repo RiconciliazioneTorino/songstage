@@ -266,6 +266,48 @@ export async function saveSlideEdit(
   return {};
 }
 
+export async function bulkDeleteSongs(
+  churchSlug: string,
+  songIds: string[]
+): Promise<{ error?: string; deleted?: number; skipped?: { id: string; title: string; setsCount: number }[] }> {
+  if (songIds.length === 0) return { deleted: 0, skipped: [] };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  const { data: usageRows } = await supabase
+    .from('set_items')
+    .select('song_id')
+    .in('song_id', songIds);
+  const usage = new Map<string, number>();
+  for (const r of usageRows ?? []) {
+    usage.set(r.song_id, (usage.get(r.song_id) ?? 0) + 1);
+  }
+  const inUse = new Set(usage.keys());
+
+  const deletable = songIds.filter((id) => !inUse.has(id));
+
+  const skipped: { id: string; title: string; setsCount: number }[] = [];
+  if (inUse.size > 0) {
+    const { data: skippedRows } = await supabase
+      .from('songs')
+      .select('id, title')
+      .in('id', Array.from(inUse));
+    for (const r of skippedRows ?? []) {
+      skipped.push({ id: r.id, title: r.title, setsCount: usage.get(r.id) ?? 0 });
+    }
+  }
+
+  if (deletable.length > 0) {
+    const { error } = await supabase.from('songs').delete().in('id', deletable);
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath(`/churches/${churchSlug}/songs`);
+  return { deleted: deletable.length, skipped };
+}
+
 export async function setCurrentVersion(
   churchSlug: string,
   songId: string,
