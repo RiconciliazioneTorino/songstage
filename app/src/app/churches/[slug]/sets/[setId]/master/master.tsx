@@ -108,6 +108,11 @@ export function Master({
     });
   }
 
+  const stateRef = useRef({ index, transposeOverride, fontScale, showChords });
+  useEffect(() => {
+    stateRef.current = { index, transposeOverride, fontScale, showChords };
+  }, [index, transposeOverride, fontScale, showChords]);
+
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase.channel(`set:${setId}:projection`, {
@@ -118,10 +123,7 @@ export function Master({
         type: 'broadcast',
         event: 'state',
         payload: {
-          index,
-          transposeOverride,
-          fontScale,
-          showChords,
+          ...stateRef.current,
           scrollFraction: scrollFractionRef.current,
         },
       });
