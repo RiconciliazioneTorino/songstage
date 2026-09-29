@@ -234,7 +234,14 @@ export function Master({
 
   return (
     <main className="h-dvh flex flex-col">
-      <div className="border-b border-border bg-panel p-3 flex flex-wrap gap-3 items-center">
+      <div
+        className="border-b border-border bg-panel p-3 flex flex-wrap gap-3 items-center"
+        style={{
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+          paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+          paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+        }}
+      >
         <Link
           href={`/churches/${slug}/sets/${setId}`}
           className="text-sm text-zinc-400 hover:text-white"

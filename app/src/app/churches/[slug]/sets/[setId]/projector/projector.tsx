@@ -67,7 +67,16 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
   }
 
   return (
-    <main ref={scrollRef} className="h-dvh overflow-auto p-12">
+    <main
+      ref={scrollRef}
+      className="h-dvh overflow-auto p-12"
+      style={{
+        paddingTop: 'max(3rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(3rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(3rem, env(safe-area-inset-left))',
+        paddingRight: 'max(3rem, env(safe-area-inset-right))',
+      }}
+    >
       {!connected && (
         <div className="fixed top-2 right-2 text-xs text-zinc-500 px-2 py-1 rounded bg-panel border border-border">
           Connessione…
