@@ -120,6 +120,23 @@ export async function updateSong(
     .eq('id', songId);
   if (songErr) return { error: songErr.message };
 
+  // If the caller transposed the base version, compensate every set_item that
+  // uses this song so its projected key stays the same. new_transpose = old - shift.
+  const rawShift = Number(formData.get('keyShift') ?? 0);
+  const keyShift = Number.isFinite(rawShift) ? Math.trunc(rawShift) : 0;
+  if (keyShift !== 0) {
+    const { data: items } = await supabase
+      .from('set_items')
+      .select('id, transpose_semitones')
+      .eq('song_id', songId);
+    for (const it of items ?? []) {
+      await supabase
+        .from('set_items')
+        .update({ transpose_semitones: (it.transpose_semitones ?? 0) - keyShift })
+        .eq('id', it.id);
+    }
+  }
+
   revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
   redirect(`/churches/${churchSlug}/songs/${songId}`);
 }
