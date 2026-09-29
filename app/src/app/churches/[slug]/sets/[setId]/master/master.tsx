@@ -270,23 +270,24 @@ export function Master({
           </button>
         </div>
 
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-zinc-400 px-1">Trasposizione</span>
+        <div className="flex items-center gap-1" title="Trasposizione">
           <button
             onClick={() => bumpTranspose(-1)}
             className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            title="Abbassa di un semitono"
           >
-            −
+            ♭
           </button>
-          <span className="text-xs px-2 py-1 rounded bg-bg border border-border min-w-[3rem] text-center">
+          <span className="text-xs px-2 py-1 rounded bg-bg border border-border min-w-[3rem] text-center font-mono">
             {totalSemitones >= 0 ? '+' : ''}
             {totalSemitones}
           </span>
           <button
             onClick={() => bumpTranspose(1)}
             className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            title="Alza di un semitono"
           >
-            +
+            ♯
           </button>
         </div>
 
@@ -294,25 +295,31 @@ export function Master({
           <button
             onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
             className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            title="Diminuisci carattere"
           >
             A−
           </button>
           <button
             onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
             className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            title="Ingrandisci carattere"
           >
             A+
           </button>
         </div>
 
-        <label className="flex items-center gap-1 text-xs text-zinc-400">
-          <input
-            type="checkbox"
-            checked={showChords}
-            onChange={(e) => setShowChords(e.target.checked)}
-          />
-          accordi
-        </label>
+        <button
+          onClick={() => setShowChords((v) => !v)}
+          className={`px-2 py-1 rounded border text-sm ${
+            showChords
+              ? 'border-accent text-accent'
+              : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+          title={showChords ? 'Nascondi accordi' : 'Mostra accordi'}
+          aria-pressed={showChords}
+        >
+          ♪
+        </button>
 
         <span className="flex-1" />
 
@@ -322,8 +329,9 @@ export function Master({
             setPickerOpen(true);
           }}
           className="px-3 py-1 rounded border border-border hover:border-accent text-sm"
+          title="Aggiungi canzone al set"
         >
-          + Aggiungi
+          +
         </button>
 
         <button
@@ -333,8 +341,9 @@ export function Master({
             setEditing(true);
           }}
           className="px-3 py-1 rounded border border-border hover:border-accent text-sm"
+          title="Modifica testo canzone"
         >
-          Modifica testo
+          ✎
         </button>
 
         <a
@@ -342,8 +351,9 @@ export function Master({
           target="_blank"
           rel="noreferrer"
           className="px-3 py-1 rounded border border-accent text-accent hover:bg-accent/10 text-sm"
+          title="Apri proiettore in nuova finestra"
         >
-          Apri proiettore ↗
+          ⧉
         </a>
       </div>
 
