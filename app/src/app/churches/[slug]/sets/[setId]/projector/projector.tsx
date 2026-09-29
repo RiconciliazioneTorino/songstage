@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseOnSong, SongView } from '@/lib/onsong';
 import { createClient } from '@/lib/supabase/client';
 import type { Slide, ProjectionState } from '../master/master';
@@ -11,8 +11,10 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     transposeOverride: 0,
     fontScale: 1.4,
     showChords: true,
+    scrollFraction: 0,
   });
   const [connected, setConnected] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -20,7 +22,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
       config: { broadcast: { self: false, ack: false } },
     });
     channel.on('broadcast', { event: 'state' }, ({ payload }) => {
-      setState(payload as ProjectionState);
+      setState((prev) => ({ ...prev, ...(payload as ProjectionState) }));
     });
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -35,6 +37,14 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     };
   }, [setId]);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max <= 0) return;
+    el.scrollTop = state.scrollFraction * max;
+  }, [state.scrollFraction, state.index, state.fontScale]);
+
   const slide = slides[state.index];
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
   const totalSemitones = (slide?.transpose ?? 0) + state.transposeOverride;
@@ -48,7 +58,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
   }
 
   return (
-    <main className="min-h-screen p-12">
+    <main ref={scrollRef} className="h-screen overflow-auto p-12">
       {!connected && (
         <div className="fixed top-2 right-2 text-xs text-zinc-500 px-2 py-1 rounded bg-panel border border-border">
           Connessione…

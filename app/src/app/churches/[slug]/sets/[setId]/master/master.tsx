@@ -25,6 +25,7 @@ export type ProjectionState = {
   transposeOverride: number;
   fontScale: number;
   showChords: boolean;
+  scrollFraction: number;
 };
 
 export function Master({
@@ -48,6 +49,9 @@ export function Master({
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollFractionRef = useRef(0);
+  const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const initialTransposeRef = useRef<Record<string, number>>(
     Object.fromEntries(slides.map((s) => [s.itemId, s.transpose]))
@@ -100,7 +104,13 @@ export function Master({
       channel.send({
         type: 'broadcast',
         event: 'state',
-        payload: { index, transposeOverride, fontScale, showChords },
+        payload: {
+          index,
+          transposeOverride,
+          fontScale,
+          showChords,
+          scrollFraction: scrollFractionRef.current,
+        },
       });
     });
     channel.subscribe();
@@ -114,17 +124,50 @@ export function Master({
   useEffect(() => {
     const ch = channelRef.current;
     if (!ch) return;
+    scrollFractionRef.current = 0;
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     ch.send({
       type: 'broadcast',
       event: 'state',
-      payload: { index, transposeOverride, fontScale, showChords },
+      payload: { index, transposeOverride, fontScale, showChords, scrollFraction: 0 },
     });
   }, [index, transposeOverride, fontScale, showChords]);
 
+  function onContentScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    const frac = max > 0 ? el.scrollTop / max : 0;
+    scrollFractionRef.current = frac;
+    if (scrollThrottleRef.current) return;
+    scrollThrottleRef.current = setTimeout(() => {
+      scrollThrottleRef.current = null;
+      const ch = channelRef.current;
+      if (!ch) return;
+      ch.send({
+        type: 'broadcast',
+        event: 'state',
+        payload: {
+          index,
+          transposeOverride,
+          fontScale,
+          showChords,
+          scrollFraction: scrollFractionRef.current,
+        },
+      });
+    }, 60);
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (editing) return;
       const t = e.target as HTMLElement;
-      if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
+      const nav = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', '+', '=', '-', '_', '0'];
+      if (!nav.includes(e.key)) return;
+      e.preventDefault();
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body) active.blur();
       if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         setIndex((i) => Math.min(slidesLocal.length - 1, i + 1));
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
@@ -140,7 +183,12 @@ export function Master({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slidesLocal.length, index]);
+  }, [slidesLocal.length, index, editing]);
+
+  const canPrev = index > 0;
+  const canNext = index < slidesLocal.length - 1;
+  const goPrev = () => canPrev && setIndex((i) => Math.max(0, i - 1));
+  const goNext = () => canNext && setIndex((i) => Math.min(slidesLocal.length - 1, i + 1));
 
   const slide = currentSlide;
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
@@ -263,15 +311,47 @@ export function Master({
         </a>
       </div>
 
-      <div className="flex-1 overflow-auto p-8 max-w-3xl mx-auto w-full">
-        {song && (
-          <SongView
-            song={song}
-            semitones={totalSemitones}
-            fontScale={fontScale}
-            showChords={showChords}
-          />
-        )}
+      <div
+        ref={scrollRef}
+        onScroll={onContentScroll}
+        className="flex-1 relative overflow-auto group"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('a, button, input, select, textarea')) return;
+          const sel = window.getSelection();
+          if (sel && sel.toString().length > 0) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const zone = Math.min(rect.width * 0.22, 160);
+          if (x < zone) goPrev();
+          else if (x > rect.width - zone) goNext();
+        }}
+      >
+        <div className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20">
+          {song && (
+            <SongView
+              song={song}
+              semitones={totalSemitones}
+              fontScale={fontScale}
+              showChords={showChords}
+            />
+          )}
+        </div>
+
+        <div
+          aria-hidden
+          className={`pointer-events-none fixed left-0 flex items-center justify-start pl-3 md:pl-6 text-4xl md:text-5xl text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity ${canPrev ? '' : 'invisible'}`}
+          style={{ top: 60, bottom: 0, width: 'min(22%, 160px)' }}
+        >
+          ‹
+        </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none fixed right-0 flex items-center justify-end pr-3 md:pr-6 text-4xl md:text-5xl text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity ${canNext ? '' : 'invisible'}`}
+          style={{ top: 60, bottom: 0, width: 'min(22%, 160px)' }}
+        >
+          ›
+        </div>
       </div>
 
       {editing && (

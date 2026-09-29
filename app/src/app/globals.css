@@ -17,6 +17,8 @@ html, body {
 .pair .chord { color: theme('colors.chord'); font-weight: bold; font-size: 0.85em; line-height: 1; min-height: 1em; }
 .pair .chord.empty { visibility: hidden; }
 .pair .lyric { line-height: 1.2; }
+.pair.chord-only { margin-right: 0.6em; }
+.pair.chord-only:last-child { margin-right: 0; }
 .section-label {
   color: theme('colors.section');
   font-weight: bold;

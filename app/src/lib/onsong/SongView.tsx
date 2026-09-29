@@ -85,14 +85,17 @@ function LyricLine({
 
   return (
     <div className="song-line mb-1">
-      {pairs.map((p, idx) => (
-        <span key={idx} className="pair">
-          <span className={`chord${p.chord ? '' : ' empty'}`}>
-            {p.chord ? transposeChord(p.chord, semitones, targetKey) : ' '}
+      {pairs.map((p, idx) => {
+        const chordOnly = !!p.chord && !/\S/.test(p.lyric);
+        return (
+          <span key={idx} className={`pair${chordOnly ? ' chord-only' : ''}`}>
+            <span className={`chord${p.chord ? '' : ' empty'}`}>
+              {p.chord ? transposeChord(p.chord, semitones, targetKey) : ' '}
+            </span>
+            <span className="lyric">{p.lyric}</span>
           </span>
-          <span className="lyric">{p.lyric}</span>
-        </span>
-      ))}
+        );
+      })}
     </div>
   );
 }
