@@ -55,6 +55,7 @@ export default async function MasterPage({
   const slides = itemList.map((i) => ({
     itemId: i.id as string,
     songId: i.song.id as string,
+    variationId: (i.variation_id as string | null) ?? null,
     title: i.song.title as string,
     artist: i.song.artist as string | null,
     originalKey: i.song.original_key as string | null,

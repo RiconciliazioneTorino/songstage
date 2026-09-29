@@ -199,6 +199,73 @@ export async function deleteSong(
   redirect(`/churches/${churchSlug}/songs`);
 }
 
+export async function saveSlideEdit(
+  churchSlug: string,
+  songId: string,
+  variationId: string | null,
+  body: string
+): Promise<{ error?: string }> {
+  const trimmed = body.trim();
+  if (!trimmed) return { error: 'Il body non può essere vuoto' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  if (variationId) {
+    const { error } = await supabase
+      .from('song_variations')
+      .update({ body_onsong: trimmed })
+      .eq('id', variationId);
+    if (error) return { error: error.message };
+    revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
+    return {};
+  }
+
+  const { data: lastVersion } = await supabase
+    .from('song_versions')
+    .select('version_number, body_onsong')
+    .eq('song_id', songId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastVersion?.body_onsong === trimmed) return {};
+
+  const nextNumber = (lastVersion?.version_number ?? 0) + 1;
+  const parsed = parseOnSong(trimmed);
+  const tempo = parsed.meta.tempo ? parseInt(parsed.meta.tempo, 10) : null;
+
+  const { data: version, error: versionErr } = await supabase
+    .from('song_versions')
+    .insert({
+      song_id: songId,
+      version_number: nextNumber,
+      body_onsong: trimmed,
+      notes: 'Modifica rapida da proiezione',
+      created_by: user.id,
+    })
+    .select('id')
+    .single();
+  if (versionErr) return { error: versionErr.message };
+
+  const { error: songErr } = await supabase
+    .from('songs')
+    .update({
+      current_version_id: version.id,
+      title: parsed.meta.title ?? undefined,
+      artist: parsed.meta.artist ?? null,
+      original_key: parsed.meta.key ?? null,
+      default_tempo: Number.isFinite(tempo) ? tempo : null,
+      time_signature: parsed.meta.time ?? null,
+    })
+    .eq('id', songId);
+  if (songErr) return { error: songErr.message };
+
+  revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
+  return {};
+}
+
 export async function setCurrentVersion(
   churchSlug: string,
   songId: string,
