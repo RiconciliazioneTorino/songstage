@@ -13,8 +13,11 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     showChords: true,
     scrollFraction: 0,
   });
+  const [slidesLocal, setSlidesLocal] = useState(slides);
   const [connected, setConnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => setSlidesLocal(slides), [slides]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -23,6 +26,12 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     });
     channel.on('broadcast', { event: 'state' }, ({ payload }) => {
       setState((prev) => ({ ...prev, ...(payload as ProjectionState) }));
+    });
+    channel.on('broadcast', { event: 'slide_update' }, ({ payload }) => {
+      const { itemId, body } = payload as { itemId: string; body: string };
+      setSlidesLocal((prev) =>
+        prev.map((s) => (s.itemId === itemId ? { ...s, body } : s))
+      );
     });
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -45,7 +54,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     el.scrollTop = state.scrollFraction * max;
   }, [state.scrollFraction, state.index, state.fontScale]);
 
-  const slide = slides[state.index];
+  const slide = slidesLocal[state.index];
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
   const totalSemitones = (slide?.transpose ?? 0) + state.transposeOverride;
 

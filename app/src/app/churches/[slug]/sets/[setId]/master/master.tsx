@@ -489,6 +489,14 @@ export function Master({
                       next[index] = { ...next[index], body: editBody };
                       return next;
                     });
+                    const ch = channelRef.current;
+                    if (ch) {
+                      ch.send({
+                        type: 'broadcast',
+                        event: 'slide_update',
+                        payload: { itemId: slide.itemId, body: editBody },
+                      });
+                    }
                     setEditing(false);
                     router.refresh();
                   });
