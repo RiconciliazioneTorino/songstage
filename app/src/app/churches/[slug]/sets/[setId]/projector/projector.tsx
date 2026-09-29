@@ -58,7 +58,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
   }
 
   return (
-    <main ref={scrollRef} className="h-screen overflow-auto p-12">
+    <main ref={scrollRef} className="h-dvh overflow-auto p-12">
       {!connected && (
         <div className="fixed top-2 right-2 text-xs text-zinc-500 px-2 py-1 rounded bg-panel border border-border">
           Connessione…
