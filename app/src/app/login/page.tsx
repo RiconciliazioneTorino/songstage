@@ -75,7 +75,7 @@ export default function LoginPage() {
         <form onSubmit={verifyCode} className="w-full max-w-sm space-y-4">
           <h1 className="text-3xl font-bold">Inserisci il codice</h1>
           <p className="text-zinc-400 text-sm">
-            Ti abbiamo mandato un codice a 6 cifre a <span className="text-white">{email}</span>.
+            Ti abbiamo mandato un codice a <span className="text-white">{email}</span>.
           </p>
           <input
             type="text"
@@ -84,9 +84,9 @@ export default function LoginPage() {
             required
             autoFocus
             value={token}
-            onChange={(e) => setToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="123456"
-            className="w-full px-3 py-2 rounded-md bg-panel border border-border focus:border-accent outline-none text-center text-2xl tracking-[0.5em] font-mono"
+            onChange={(e) => setToken(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            placeholder="12345678"
+            className="w-full px-3 py-2 rounded-md bg-panel border border-border focus:border-accent outline-none text-center text-2xl tracking-[0.4em] font-mono"
           />
           <button
             type="submit"
