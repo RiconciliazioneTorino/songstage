@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addSongToSet, moveSetItem, removeSetItem, updateSetItem } from '@/lib/sets/actions';
 
@@ -181,14 +181,17 @@ function VariationPicker({
   variations: Variation[];
   onChange: () => void;
 }) {
+  const [local, setLocal] = useState<string>(current ?? '');
+  useEffect(() => setLocal(current ?? ''), [current]);
   if (variations.length === 0) return null;
 
   return (
     <select
-      value={current ?? ''}
+      value={local}
       onChange={async (e) => {
-        const val = e.target.value || null;
-        await updateSetItem(itemId, { variation_id: val });
+        const val = e.target.value;
+        setLocal(val);
+        await updateSetItem(itemId, { variation_id: val || null });
         onChange();
       }}
       className="text-xs px-1 py-0.5 rounded bg-bg border border-border max-w-[8rem]"

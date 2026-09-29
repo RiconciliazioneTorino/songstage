@@ -58,6 +58,28 @@ export default async function MasterPage({
     (variations ?? []).forEach((v) => variationsById.set(v.id, v.body_onsong));
   }
 
+  // All variations visible for the songs in this set, so the master can switch.
+  const songIds = itemList.map((i) => i.song?.id).filter(Boolean);
+  const variationsBySong = new Map<string, any[]>();
+  const allVariationBodiesById = new Map<string, string>();
+  if (songIds.length > 0) {
+    const { data: allVars } = await supabase
+      .from('song_variations')
+      .select('id, song_id, name, scope, body_onsong, band:bands(name)')
+      .in('song_id', songIds);
+    for (const v of allVars ?? []) {
+      const list = variationsBySong.get(v.song_id) ?? [];
+      list.push({
+        id: v.id,
+        name: v.name,
+        scope: v.scope,
+        bandName: (v as any).band?.name ?? null,
+      });
+      variationsBySong.set(v.song_id, list);
+      allVariationBodiesById.set(v.id, v.body_onsong);
+    }
+  }
+
   const slides = itemList.map((i) => ({
     itemId: i.id as string,
     songId: i.song.id as string,
@@ -66,10 +88,18 @@ export default async function MasterPage({
     artist: i.song.artist as string | null,
     originalKey: i.song.original_key as string | null,
     transpose: i.transpose_semitones as number,
+    baseBody: versionsById.get(i.song.current_version_id ?? '') ?? '',
     body:
-      (i.variation_id ? variationsById.get(i.variation_id) : null) ??
+      (i.variation_id ? allVariationBodiesById.get(i.variation_id) ?? variationsById.get(i.variation_id) : null) ??
       versionsById.get(i.song.current_version_id ?? '') ??
       '',
+    availableVariations: variationsBySong.get(i.song.id) ?? [],
+    variationBodies: Object.fromEntries(
+      (variationsBySong.get(i.song.id) ?? []).map((v) => [
+        v.id,
+        allVariationBodiesById.get(v.id) ?? '',
+      ])
+    ),
   }));
 
   return (

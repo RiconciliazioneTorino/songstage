@@ -57,6 +57,9 @@ export default async function ProjectorPage({
     artist: i.song.artist as string | null,
     originalKey: i.song.original_key as string | null,
     transpose: i.transpose_semitones as number,
+    baseBody: '',
+    availableVariations: [],
+    variationBodies: {},
     body:
       (i.variation_id ? variationsById.get(i.variation_id) : null) ??
       versionsById.get(i.song.current_version_id ?? '') ??

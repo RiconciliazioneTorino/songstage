@@ -9,6 +9,13 @@ import { saveSlideEdit } from '@/lib/songs/actions';
 import { addSongToSet, updateSetItem } from '@/lib/sets/actions';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+export type SlideVariation = {
+  id: string;
+  name: string;
+  scope: 'church' | 'band' | 'user';
+  bandName: string | null;
+};
+
 export type Slide = {
   itemId: string;
   songId: string;
@@ -18,6 +25,9 @@ export type Slide = {
   originalKey: string | null;
   transpose: number;
   body: string;
+  baseBody: string;
+  availableVariations: SlideVariation[];
+  variationBodies: Record<string, string>;
 };
 
 export type ProjectionState = {
@@ -340,6 +350,48 @@ export function Master({
             A+
           </button>
         </div>
+
+        {slide.availableVariations.length > 0 && (
+          <select
+            value={slide.variationId ?? ''}
+            onChange={async (e) => {
+              const val = e.target.value || null;
+              setSlidesLocal((prev) => {
+                const next = prev.slice();
+                const s = next[index];
+                const newBody = val
+                  ? s.variationBodies[val] ?? s.body
+                  : s.baseBody || s.body;
+                next[index] = { ...s, variationId: val, body: newBody };
+                return next;
+              });
+              await updateSetItem(slide.itemId, { variation_id: val });
+              const ch = channelRef.current;
+              if (ch) {
+                const newBody = val
+                  ? slide.variationBodies[val] ?? slide.body
+                  : slide.baseBody || slide.body;
+                ch.send({
+                  type: 'broadcast',
+                  event: 'slide_update',
+                  payload: { itemId: slide.itemId, body: newBody },
+                });
+              }
+              router.refresh();
+            }}
+            className="h-9 rounded border border-border bg-bg text-sm px-2 max-w-[10rem]"
+            title="Variante usata"
+          >
+            <option value="">Base</option>
+            {slide.availableVariations.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+                {v.scope === 'band' && v.bandName ? ` (${v.bandName})` : ''}
+                {v.scope === 'user' ? ' (personale)' : ''}
+              </option>
+            ))}
+          </select>
+        )}
 
         <button
           onClick={() => setShowChords((v) => !v)}
