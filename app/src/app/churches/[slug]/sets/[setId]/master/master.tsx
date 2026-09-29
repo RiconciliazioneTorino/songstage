@@ -208,7 +208,7 @@ export function Master({
   }
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="h-screen flex flex-col">
       <div className="border-b border-border bg-panel p-3 flex flex-wrap gap-3 items-center">
         <Link
           href={`/churches/${slug}/sets/${setId}`}
