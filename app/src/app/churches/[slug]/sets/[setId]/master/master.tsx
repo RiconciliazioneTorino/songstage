@@ -250,7 +250,7 @@ export function Master({
         </Link>
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+          className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
           aria-label={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
           title={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
         >
@@ -261,17 +261,17 @@ export function Master({
           <button
             disabled={index === 0}
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            className="px-3 py-1 rounded border border-border hover:border-accent disabled:opacity-30 text-sm"
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
           >
             ◀
           </button>
-          <span className="text-xs text-zinc-400 px-2 min-w-[3.5rem] text-center">
+          <span className="text-sm text-zinc-400 px-2 min-w-[3.5rem] text-center font-mono">
             {index + 1} / {slidesLocal.length}
           </span>
           <button
             disabled={index === slidesLocal.length - 1}
             onClick={() => setIndex((i) => Math.min(slidesLocal.length - 1, i + 1))}
-            className="px-3 py-1 rounded border border-border hover:border-accent disabled:opacity-30 text-sm"
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
           >
             ▶
           </button>
@@ -280,18 +280,18 @@ export function Master({
         <div className="flex items-center gap-1" title="Trasposizione">
           <button
             onClick={() => bumpTranspose(-1)}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Abbassa di un semitono"
           >
             ♭
           </button>
-          <span className="text-xs px-2 py-1 rounded bg-bg border border-border min-w-[3rem] text-center font-mono">
+          <span className="text-sm h-9 px-2 rounded bg-bg border border-border min-w-[3rem] text-center font-mono flex items-center justify-center">
             {totalSemitones >= 0 ? '+' : ''}
             {totalSemitones}
           </span>
           <button
             onClick={() => bumpTranspose(1)}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Alza di un semitono"
           >
             ♯
@@ -301,14 +301,14 @@ export function Master({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Diminuisci carattere"
           >
             A−
           </button>
           <button
             onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Ingrandisci carattere"
           >
             A+
@@ -317,7 +317,7 @@ export function Master({
 
         <button
           onClick={() => setShowChords((v) => !v)}
-          className={`px-2 py-1 rounded border text-sm ${
+          className={`min-w-[2.25rem] h-9 rounded border text-xl leading-none flex items-center justify-center ${
             showChords
               ? 'border-accent text-accent'
               : 'border-border text-zinc-500 hover:border-accent'
@@ -335,7 +335,7 @@ export function Master({
             setPickerQuery('');
             setPickerOpen(true);
           }}
-          className="px-3 py-1 rounded border border-border hover:border-accent text-sm"
+          className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
           title="Aggiungi canzone al set"
         >
           +
@@ -347,7 +347,7 @@ export function Master({
             setEditError(null);
             setEditing(true);
           }}
-          className="px-3 py-1 rounded border border-border hover:border-accent text-sm"
+          className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
           title="Modifica testo canzone"
         >
           ✎
@@ -357,7 +357,7 @@ export function Master({
           href={projectorUrl}
           target="_blank"
           rel="noreferrer"
-          className="px-3 py-1 rounded border border-accent text-accent hover:bg-accent/10 text-sm"
+          className="min-w-[2.25rem] h-9 rounded border border-accent text-accent hover:bg-accent/10 text-lg leading-none flex items-center justify-center"
           title="Apri proiettore in nuova finestra"
         >
           ⧉
