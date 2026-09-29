@@ -60,6 +60,7 @@ export function Master({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollFractionRef = useRef(0);
@@ -238,6 +239,15 @@ export function Master({
         >
           ← {setName}
         </Link>
+        <button
+          onClick={() => setSidebarOpen((v) => !v)}
+          className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+          aria-label={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
+          title={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
+        >
+          ☰
+        </button>
+
         <div className="flex items-center gap-1">
           <button
             disabled={index === 0}
@@ -246,17 +256,9 @@ export function Master({
           >
             ◀
           </button>
-          <select
-            value={index}
-            onChange={(e) => setIndex(Number(e.target.value))}
-            className="px-2 py-1 rounded bg-bg border border-border text-sm"
-          >
-            {slidesLocal.map((s, i) => (
-              <option key={s.itemId} value={i}>
-                {i + 1}. {s.title}
-              </option>
-            ))}
-          </select>
+          <span className="text-xs text-zinc-400 px-2 min-w-[3.5rem] text-center">
+            {index + 1} / {slidesLocal.length}
+          </span>
           <button
             disabled={index === slidesLocal.length - 1}
             onClick={() => setIndex((i) => Math.min(slidesLocal.length - 1, i + 1))}
@@ -343,46 +345,85 @@ export function Master({
         </a>
       </div>
 
-      <div
-        ref={scrollRef}
-        onScroll={onContentScroll}
-        className="flex-1 relative overflow-auto group"
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('a, button, input, select, textarea')) return;
-          const sel = window.getSelection();
-          if (sel && sel.toString().length > 0) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const zone = Math.min(rect.width * 0.22, 160);
-          if (x < zone) goPrev();
-          else if (x > rect.width - zone) goNext();
-        }}
-      >
-        <div className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20">
-          {song && (
-            <SongView
-              song={song}
-              semitones={totalSemitones}
-              fontScale={fontScale}
-              showChords={showChords}
-            />
-          )}
-        </div>
+      <div className="flex-1 flex overflow-hidden">
+        {sidebarOpen && (
+          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0">
+            <ol className="p-2 text-sm">
+              {slidesLocal.map((s, i) => (
+                <li key={s.itemId}>
+                  <button
+                    onClick={() => setIndex(i)}
+                    className={`w-full text-left px-2 py-2 rounded flex items-baseline gap-2 hover:bg-bg ${
+                      i === index ? 'bg-bg border-l-2 border-accent' : ''
+                    }`}
+                  >
+                    <span className="text-xs text-zinc-500 min-w-[1.5rem]">
+                      {i + 1}.
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`truncate ${
+                          i === index ? 'text-white' : 'text-zinc-300'
+                        }`}
+                      >
+                        {s.title}
+                      </div>
+                      {s.artist && (
+                        <div className="text-xs text-zinc-500 truncate">
+                          {s.artist}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        )}
 
-        <div
-          aria-hidden
-          className={`pointer-events-none fixed left-0 flex items-center justify-start pl-3 md:pl-6 text-4xl md:text-5xl text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity ${canPrev ? '' : 'invisible'}`}
-          style={{ top: 60, bottom: 0, width: 'min(22%, 160px)' }}
-        >
-          ‹
-        </div>
-        <div
-          aria-hidden
-          className={`pointer-events-none fixed right-0 flex items-center justify-end pr-3 md:pr-6 text-4xl md:text-5xl text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity ${canNext ? '' : 'invisible'}`}
-          style={{ top: 60, bottom: 0, width: 'min(22%, 160px)' }}
-        >
-          ›
+        <div className="flex-1 relative group">
+          <div
+            ref={scrollRef}
+            onScroll={onContentScroll}
+            className="absolute inset-0 overflow-auto"
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('a, button, input, select, textarea')) return;
+              const sel = window.getSelection();
+              if (sel && sel.toString().length > 0) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const zone = Math.min(rect.width * 0.22, 160);
+              if (x < zone) goPrev();
+              else if (x > rect.width - zone) goNext();
+            }}
+          >
+            <div className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20">
+              {song && (
+                <SongView
+                  song={song}
+                  semitones={totalSemitones}
+                  fontScale={fontScale}
+                  showChords={showChords}
+                />
+              )}
+            </div>
+          </div>
+
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute left-0 top-0 bottom-0 flex items-center justify-start pl-3 md:pl-6 text-4xl md:text-5xl text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity ${canPrev ? '' : 'invisible'}`}
+            style={{ width: 'min(22%, 160px)' }}
+          >
+            ‹
+          </div>
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute right-0 top-0 bottom-0 flex items-center justify-end pr-3 md:pr-6 text-4xl md:text-5xl text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity ${canNext ? '' : 'invisible'}`}
+            style={{ width: 'min(22%, 160px)' }}
+          >
+            ›
+          </div>
         </div>
       </div>
 
