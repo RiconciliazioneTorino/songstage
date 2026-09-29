@@ -41,12 +41,16 @@ export function Master({
   slug,
   slides,
   availableSongs,
+  currentUserId,
+  currentUserEmail,
 }: {
   setId: string;
   setName: string;
   slug: string;
   slides: Slide[];
   availableSongs: AvailableSong[];
+  currentUserId: string;
+  currentUserEmail: string;
 }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
@@ -61,6 +65,7 @@ export function Master({
   const [pickerQuery, setPickerQuery] = useState('');
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [otherMasters, setOtherMasters] = useState<string[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollFractionRef = useRef(0);
@@ -116,7 +121,10 @@ export function Master({
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase.channel(`set:${setId}:projection`, {
-      config: { broadcast: { self: false, ack: false } },
+      config: {
+        broadcast: { self: false, ack: false },
+        presence: { key: currentUserId },
+      },
     });
     channel.on('broadcast', { event: 'request_state' }, () => {
       channel.send({
@@ -128,9 +136,27 @@ export function Master({
         },
       });
     });
-    channel.subscribe();
+    channel.on('presence', { event: 'sync' }, () => {
+      const st = channel.presenceState() as Record<
+        string,
+        { role?: string; email?: string }[]
+      >;
+      const others: string[] = [];
+      for (const [key, metas] of Object.entries(st)) {
+        if (key === currentUserId) continue;
+        const meta = metas.find((m) => m.role === 'master');
+        if (meta) others.push(meta.email ?? key);
+      }
+      setOtherMasters(others);
+    });
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({ role: 'master', email: currentUserEmail });
+      }
+    });
     channelRef.current = channel;
     return () => {
+      channel.untrack();
       channel.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -363,6 +389,18 @@ export function Master({
           ⧉
         </a>
       </div>
+
+      {otherMasters.length > 0 && (
+        <div className="border-b border-yellow-600/50 bg-yellow-950/40 text-yellow-200 text-sm px-4 py-2 flex items-center gap-2">
+          <span>⚠</span>
+          <span>
+            Anche{' '}
+            <span className="font-medium">{otherMasters.join(', ')}</span>{' '}
+            {otherMasters.length === 1 ? 'sta' : 'stanno'} dirigendo — le vostre
+            modifiche si sovrascriveranno.
+          </span>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         {sidebarOpen && (

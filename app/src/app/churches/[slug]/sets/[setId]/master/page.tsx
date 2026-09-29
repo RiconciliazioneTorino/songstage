@@ -79,6 +79,8 @@ export default async function MasterPage({
       slug={slug}
       slides={slides}
       availableSongs={(availableSongs as any) ?? []}
+      currentUserId={user.id}
+      currentUserEmail={user.email ?? ''}
     />
   );
 }
