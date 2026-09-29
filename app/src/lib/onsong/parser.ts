@@ -63,8 +63,29 @@ function isChordOnlyLine(line: string): boolean {
   return tokens.every(isChordToken);
 }
 
-function mergeChordOverLyric(chordLine: string, lyricLine: string): string {
+// Line consisting of only bracketed chord tokens and whitespace,
+// e.g. "[D]       [Em]       [A]   [D]"
+function isBracketedChordOnlyLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || !trimmed.includes('[')) return false;
+  const stripped = trimmed.replace(/\[([^\]]+)\]/g, (_, c) =>
+    isChordToken(c.trim()) ? '' : c
+  );
+  return stripped.trim() === '';
+}
+
+// Positions of chords in a chord line. For inline-bracketed chord lines,
+// the position is the column of '['; for bare chord lines, the column of the token.
+function extractChordPositions(chordLine: string): { col: number; chord: string }[] {
   const positions: { col: number; chord: string }[] = [];
+  if (chordLine.includes('[')) {
+    const re = /\[([^\]]+)\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(chordLine)) !== null) {
+      positions.push({ col: m.index, chord: m[1].trim() });
+    }
+    return positions;
+  }
   let col = 0;
   while (col < chordLine.length) {
     if (/\s/.test(chordLine[col])) { col++; continue; }
@@ -73,6 +94,11 @@ function mergeChordOverLyric(chordLine: string, lyricLine: string): string {
     positions.push({ col, chord: chordLine.slice(col, end) });
     col = end;
   }
+  return positions;
+}
+
+function mergeChordOverLyric(chordLine: string, lyricLine: string): string {
+  const positions = extractChordPositions(chordLine);
 
   let out = '';
   let lyricPos = 0;
@@ -91,12 +117,15 @@ function normalizeChordLines(lines: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const cur = lines[i];
-    if (isChordOnlyLine(cur)) {
+    const curIsChord = isChordOnlyLine(cur) || isBracketedChordOnlyLine(cur);
+    if (curIsChord) {
       const next = lines[i + 1];
+      const nextIsChord = next !== undefined
+        && (isChordOnlyLine(next) || isBracketedChordOnlyLine(next));
       if (
         next !== undefined &&
         next.trim() &&
-        !isChordOnlyLine(next) &&
+        !nextIsChord &&
         !isSectionLine(next) &&
         !next.trim().startsWith('#')
       ) {
