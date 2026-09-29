@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -11,6 +11,19 @@ export default function LoginPage() {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // If cookies were dropped (e.g. iOS PWA cold start) but localStorage still
+  // holds the session, createClient() rehydrates cookies; getSession then
+  // sees a valid session and we can skip the login form entirely.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        router.replace('/dashboard');
+        router.refresh();
+      }
+    });
+  }, [router]);
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
