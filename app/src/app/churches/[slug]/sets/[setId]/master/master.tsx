@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { parseOnSong, SongView } from '@/lib/onsong';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
-import { updateSetItem } from '@/lib/sets/actions';
+import { addSongToSet, updateSetItem } from '@/lib/sets/actions';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type Slide = {
@@ -28,16 +28,25 @@ export type ProjectionState = {
   scrollFraction: number;
 };
 
+export type AvailableSong = {
+  id: string;
+  title: string;
+  artist: string | null;
+  original_key: string | null;
+};
+
 export function Master({
   setId,
   setName,
   slug,
   slides,
+  availableSongs,
 }: {
   setId: string;
   setName: string;
   slug: string;
   slides: Slide[];
+  availableSongs: AvailableSong[];
 }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
@@ -48,6 +57,9 @@ export function Master({
   const [editBody, setEditBody] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const [addingSongId, setAddingSongId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollFractionRef = useRef(0);
@@ -190,6 +202,16 @@ export function Master({
   const goPrev = () => canPrev && setIndex((i) => Math.max(0, i - 1));
   const goNext = () => canNext && setIndex((i) => Math.min(slidesLocal.length - 1, i + 1));
 
+  const filteredSongs = useMemo(() => {
+    const q = pickerQuery.trim().toLowerCase();
+    if (!q) return availableSongs;
+    return availableSongs.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        (s.artist ?? '').toLowerCase().includes(q)
+    );
+  }, [availableSongs, pickerQuery]);
+
   const slide = currentSlide;
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
   const totalSemitones = slide?.transpose ?? 0;
@@ -289,6 +311,16 @@ export function Master({
         </label>
 
         <span className="flex-1" />
+
+        <button
+          onClick={() => {
+            setPickerQuery('');
+            setPickerOpen(true);
+          }}
+          className="px-3 py-1 rounded border border-border hover:border-accent text-sm"
+        >
+          + Aggiungi
+        </button>
 
         <button
           onClick={() => {
@@ -425,6 +457,79 @@ export function Master({
               >
                 {saving ? 'Salvataggio…' : 'Salva'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pickerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => !addingSongId && setPickerOpen(false)}
+        >
+          <div
+            className="bg-panel border border-border rounded-lg w-full max-w-lg max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3 border-b border-border flex items-center gap-2">
+              <input
+                autoFocus
+                placeholder="Cerca canzone…"
+                value={pickerQuery}
+                onChange={(e) => setPickerQuery(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-md bg-bg border border-border focus:border-accent outline-none text-sm"
+              />
+              <button
+                onClick={() => !addingSongId && setPickerOpen(false)}
+                className="text-zinc-400 hover:text-white text-xl leading-none px-2"
+                aria-label="Chiudi"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto divide-y divide-border">
+              {filteredSongs.length === 0 ? (
+                <div className="p-6 text-center text-sm text-zinc-500">
+                  Nessun risultato.
+                </div>
+              ) : (
+                filteredSongs.map((s) => (
+                  <button
+                    key={s.id}
+                    disabled={!!addingSongId}
+                    onClick={async () => {
+                      setAddingSongId(s.id);
+                      const res = await addSongToSet(setId, s.id);
+                      setAddingSongId(null);
+                      if (res?.error) {
+                        alert(res.error);
+                        return;
+                      }
+                      setPickerOpen(false);
+                      setPickerQuery('');
+                      router.refresh();
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-bg flex items-center justify-between disabled:opacity-50"
+                  >
+                    <div>
+                      <div className="text-sm">{s.title}</div>
+                      {s.artist && (
+                        <div className="text-xs text-zinc-500">{s.artist}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {s.original_key && (
+                        <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border">
+                          {s.original_key}
+                        </span>
+                      )}
+                      {addingSongId === s.id && (
+                        <span className="text-xs text-accent">…</span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>

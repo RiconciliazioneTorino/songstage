@@ -14,10 +14,16 @@ export default async function MasterPage({
 
   const { data: set } = await supabase
     .from('sets')
-    .select('id, name')
+    .select('id, name, church_id')
     .eq('id', setId)
     .maybeSingle();
   if (!set) notFound();
+
+  const { data: availableSongs } = await supabase
+    .from('songs')
+    .select('id, title, artist, original_key')
+    .eq('church_id', set.church_id)
+    .order('title');
 
   const { data: items } = await supabase
     .from('set_items')
@@ -67,6 +73,12 @@ export default async function MasterPage({
   }));
 
   return (
-    <Master setId={set.id} setName={set.name} slug={slug} slides={slides} />
+    <Master
+      setId={set.id}
+      setName={set.name}
+      slug={slug}
+      slides={slides}
+      availableSongs={(availableSongs as any) ?? []}
+    />
   );
 }
