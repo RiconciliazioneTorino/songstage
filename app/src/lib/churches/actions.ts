@@ -151,7 +151,7 @@ export async function inviteChurchMember(
     .eq('id', user.id)
     .maybeSingle();
 
-  const url = `${await baseUrl()}/login`;
+  const url = `${await baseUrl()}/login?email=${encodeURIComponent(cleanEmail)}`;
   const churchName = church?.name ?? 'una chiesa';
   const inviterName = inviter?.display_name || inviter?.email || 'un amministratore';
   const roleLabel = ROLE_LABEL[role];

@@ -1,17 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const searchParams = useSearchParams();
+  const prefilledEmail = searchParams.get('email') ?? '';
+  const [email, setEmail] = useState(prefilledEmail);
   const [token, setToken] = useState('');
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const autoSentRef = useRef(false);
+
+  async function submitSendCode(targetEmail: string) {
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: targetEmail.trim(),
+      options: { shouldCreateUser: true },
+    });
+    setBusy(false);
+    if (error) setError(error.message);
+    else setStep('code');
+  }
 
   // If cookies were dropped (e.g. iOS PWA cold start) but localStorage still
   // holds the session, createClient() rehydrates cookies; getSession then
@@ -22,11 +38,16 @@ export default function LoginPage() {
       if (data.session) {
         router.replace('/dashboard');
         router.refresh();
-      } else {
-        setCheckingSession(false);
+        return;
+      }
+      setCheckingSession(false);
+      // Auto-send code if the invite link pre-filled ?email=...
+      if (prefilledEmail && !autoSentRef.current) {
+        autoSentRef.current = true;
+        submitSendCode(prefilledEmail);
       }
     });
-  }, [router]);
+  }, [router, prefilledEmail]);
 
   if (checkingSession) {
     return (
@@ -38,16 +59,7 @@ export default function LoginPage() {
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true },
-    });
-    setBusy(false);
-    if (error) setError(error.message);
-    else setStep('code');
+    await submitSendCode(email);
   }
 
   async function verifyCode(e: React.FormEvent) {
