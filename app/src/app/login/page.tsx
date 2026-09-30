@@ -44,23 +44,27 @@ function LoginInner() {
   }
 
   // If cookies were dropped (e.g. iOS PWA cold start) but localStorage still
-  // holds the session, createClient() rehydrates cookies; getSession then
-  // sees a valid session and we can skip the login form entirely.
+  // holds the session, createClient() rehydrates cookies; getUser() verifies
+  // the token with Supabase, so we don't loop with the dashboard when the
+  // stored token is stale.
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
+    (async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.getUser();
+      if (data?.user && !error) {
         router.replace('/dashboard');
         router.refresh();
         return;
       }
+      // Stale session — clear it so we don't rehydrate again next mount.
+      await supabase.auth.signOut().catch(() => {});
       setCheckingSession(false);
       // Auto-send code if the invite link pre-filled ?email=...
       if (prefilledEmail && !autoSentRef.current) {
         autoSentRef.current = true;
         submitSendCode(prefilledEmail);
       }
-    });
+    })();
   }, [router, prefilledEmail]);
 
   if (checkingSession) {
