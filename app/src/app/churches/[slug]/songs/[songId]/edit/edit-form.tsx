@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { updateSong } from '@/lib/songs/actions';
 import { transposeChord, transposeKey } from '@/lib/onsong/transpose';
-import { parseOnSong } from '@/lib/onsong';
+import { parseOnSong, SongView } from '@/lib/onsong';
 
 function transposeOnSongBody(body: string, semitones: number): string {
   if (semitones === 0) return body;
@@ -41,6 +41,7 @@ export function EditSongForm({
   const [keyShift, setKeyShift] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const parsed = useMemo(() => parseOnSong(body), [body]);
   const currentKey = parsed.meta.key ?? '?';
@@ -96,6 +97,19 @@ export function EditSongForm({
           >
             ♯
           </button>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((v) => !v)}
+            className={`h-9 px-3 rounded border text-sm flex items-center justify-center ${
+              previewOpen
+                ? 'border-accent text-accent'
+                : 'border-border text-zinc-400 hover:border-accent hover:text-white'
+            }`}
+            title={previewOpen ? 'Nascondi anteprima' : 'Mostra anteprima'}
+            aria-pressed={previewOpen}
+          >
+            {previewOpen ? 'Nascondi anteprima' : 'Anteprima'}
+          </button>
         </div>
         {keyShift !== 0 && (
           <p className="text-xs text-yellow-300/90">
@@ -106,16 +120,26 @@ export function EditSongForm({
         )}
       </div>
 
-      <div>
-        <label className="text-sm text-zinc-400 block mb-1">OnSong body</label>
-        <textarea
-          name="body"
-          required
-          rows={24}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          className="w-full px-3 py-2 rounded-md bg-panel border border-border focus:border-accent outline-none font-mono text-sm"
-        />
+      <div className={previewOpen ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : ''}>
+        <div>
+          <label className="text-sm text-zinc-400 block mb-1">OnSong body</label>
+          <textarea
+            name="body"
+            required
+            rows={24}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            className="w-full px-3 py-2 rounded-md bg-panel border border-border focus:border-accent outline-none font-mono text-sm"
+          />
+        </div>
+        {previewOpen && (
+          <div>
+            <label className="text-sm text-zinc-400 block mb-1">Anteprima</label>
+            <div className="rounded-md bg-panel border border-border p-4 max-h-[36rem] overflow-auto">
+              <SongView song={parsed} semitones={0} fontScale={0.9} />
+            </div>
+          </div>
+        )}
       </div>
       <div>
         <label className="text-sm text-zinc-400 block mb-1">Note di versione (opzionale)</label>

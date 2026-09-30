@@ -31,7 +31,7 @@ export default async function EditSongPage({
   }
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen p-8 max-w-6xl mx-auto">
       <Link
         href={`/churches/${slug}/songs/${songId}`}
         className="text-sm text-zinc-400 hover:text-white"
