@@ -1,8 +1,29 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { sendMail } from '@/lib/email/resend';
+
+const ROLE_LABEL: Record<'admin' | 'director' | 'musico' | 'lector', string> = {
+  admin: 'Admin',
+  director: 'Direttore',
+  musico: 'Musicista',
+  lector: 'Lettore',
+};
+
+async function baseUrl(): Promise<string> {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl) return envUrl.replace(/\/$/, '');
+  try {
+    const h = await headers();
+    const host = h.get('host');
+    const proto = h.get('x-forwarded-proto') ?? 'https';
+    if (host) return `${proto}://${host}`;
+  } catch {}
+  return 'https://songstage.riconciliazionetorino.net';
+}
 
 function slugify(s: string): string {
   return s
@@ -117,6 +138,50 @@ export async function inviteChurchMember(
       { onConflict: 'church_id,email' }
     );
   if (error) return { error: error.message };
+
+  const { data: church } = await supabase
+    .from('churches')
+    .select('name, slug')
+    .eq('id', churchId)
+    .maybeSingle();
+
+  const { data: inviter } = await supabase
+    .from('users')
+    .select('display_name, email')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const url = `${await baseUrl()}/login`;
+  const churchName = church?.name ?? 'una chiesa';
+  const inviterName = inviter?.display_name || inviter?.email || 'un amministratore';
+  const roleLabel = ROLE_LABEL[role];
+
+  await sendMail({
+    to: cleanEmail,
+    subject: `Sei stato invitato a ${churchName} su SongStage`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 480px;">
+        <h2 style="margin-bottom: 8px;">Sei stato invitato a <b>${churchName}</b></h2>
+        <p style="color:#444; margin: 0 0 16px;">
+          ${inviterName} ti ha invitato come <b>${roleLabel}</b> su SongStage,
+          l'app che usiamo per gestire i canti e le scalette delle riunioni.
+        </p>
+        <p style="margin: 16px 0;">
+          <a href="${url}" style="display:inline-block; padding:10px 16px; background:#4ade80; color:#0f0f10; text-decoration:none; border-radius:6px; font-weight:600;">
+            Accedi con ${cleanEmail}
+          </a>
+        </p>
+        <p style="color:#888; font-size:12px;">
+          Usa questo indirizzo email per accedere: ${cleanEmail}.
+          Al primo accesso verrai aggiunto automaticamente a ${churchName}.
+        </p>
+        <p style="color:#888; font-size:12px;">
+          Se non aspettavi questo invito, puoi ignorare questa email.
+        </p>
+      </div>
+    `,
+  });
+
   revalidatePath(`/churches/[slug]`, 'page');
   return { invited: true };
 }
