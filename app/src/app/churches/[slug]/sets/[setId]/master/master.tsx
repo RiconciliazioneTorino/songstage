@@ -75,7 +75,14 @@ export function Master({
   const [pickerQuery, setPickerQuery] = useState('');
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [otherMasters, setOtherMasters] = useState<string[]>([]);
+  const [role, setRole] = useState<'connecting' | 'master' | 'viewer'>('connecting');
+  const [activeMasterEmail, setActiveMasterEmail] = useState<string | null>(null);
+  const [incomingRequest, setIncomingRequest] = useState<
+    { userId: string; email: string; expiresAt: number } | null
+  >(null);
+  const [pendingRequest, setPendingRequest] = useState<{ expiresAt: number } | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
+  const roleRef = useRef(role);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollFractionRef = useRef(0);
@@ -100,6 +107,7 @@ export function Master({
   }
 
   function bumpTranspose(delta: number) {
+    if (roleRef.current !== 'master') return;
     setSlidesLocal((prev) => {
       const s = prev[index];
       if (!s) return prev;
@@ -112,6 +120,7 @@ export function Master({
   }
 
   function resetTranspose() {
+    if (roleRef.current !== 'master') return;
     setSlidesLocal((prev) => {
       const s = prev[index];
       if (!s) return prev;
@@ -129,6 +138,26 @@ export function Master({
   }, [index, transposeOverride, fontScale, showChords]);
 
   useEffect(() => {
+    roleRef.current = role;
+  }, [role]);
+
+  // countdown ticker for request timeouts
+  useEffect(() => {
+    if (!incomingRequest && !pendingRequest) return;
+    const t = setInterval(() => setNowTick(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [incomingRequest, pendingRequest]);
+
+  useEffect(() => {
+    if (incomingRequest && nowTick >= incomingRequest.expiresAt) {
+      setIncomingRequest(null);
+    }
+    if (pendingRequest && nowTick >= pendingRequest.expiresAt) {
+      setPendingRequest(null);
+    }
+  }, [nowTick, incomingRequest, pendingRequest]);
+
+  useEffect(() => {
     const supabase = createClient();
     const channel = supabase.channel(`set:${setId}:projection`, {
       config: {
@@ -136,7 +165,9 @@ export function Master({
         presence: { key: currentUserId },
       },
     });
+
     channel.on('broadcast', { event: 'request_state' }, () => {
+      if (roleRef.current !== 'master') return;
       channel.send({
         type: 'broadcast',
         event: 'state',
@@ -146,24 +177,101 @@ export function Master({
         },
       });
     });
+
+    // viewer applies incoming state so its UI mirrors the master
+    channel.on('broadcast', { event: 'state' }, ({ payload }) => {
+      if (roleRef.current !== 'viewer') return;
+      const p = payload as {
+        index: number;
+        fontScale: number;
+        showChords: boolean;
+        scrollFraction: number;
+      };
+      setIndex(p.index);
+      setFontScale(p.fontScale);
+      setShowChords(p.showChords);
+      const el = scrollRef.current;
+      if (el) {
+        const max = el.scrollHeight - el.clientHeight;
+        if (max > 0) el.scrollTop = p.scrollFraction * max;
+      }
+    });
+
+    channel.on('broadcast', { event: 'lead_request' }, ({ payload }) => {
+      if (roleRef.current !== 'master') return;
+      const { fromUserId, fromEmail } = payload as {
+        fromUserId: string;
+        fromEmail: string;
+      };
+      if (fromUserId === currentUserId) return;
+      setIncomingRequest({
+        userId: fromUserId,
+        email: fromEmail,
+        expiresAt: Date.now() + 10_000,
+      });
+    });
+
+    channel.on('broadcast', { event: 'lead_grant' }, ({ payload }) => {
+      const { toUserId } = payload as { toUserId: string };
+      if (toUserId !== currentUserId) return;
+      if (roleRef.current !== 'viewer') return;
+      setPendingRequest(null);
+      channel.track({ role: 'master', email: currentUserEmail });
+      setRole('master');
+    });
+
+    channel.on('broadcast', { event: 'lead_deny' }, ({ payload }) => {
+      const { toUserId } = payload as { toUserId: string };
+      if (toUserId !== currentUserId) return;
+      setPendingRequest(null);
+    });
+
     channel.on('presence', { event: 'sync' }, () => {
       const st = channel.presenceState() as Record<
         string,
-        { role?: string; email?: string }[]
+        { role?: string; email?: string; joinedAt?: number }[]
       >;
-      const others: string[] = [];
-      for (const [key, metas] of Object.entries(st)) {
-        if (key === currentUserId) continue;
-        const meta = metas.find((m) => m.role === 'master');
-        if (meta) others.push(meta.email ?? key);
+      let masterEntry: { userId: string; email: string } | null = null;
+      let masterJoinedAt = Number.POSITIVE_INFINITY;
+      for (const [userId, metas] of Object.entries(st)) {
+        const m = metas.find((x) => x.role === 'master');
+        if (!m) continue;
+        const joined = m.joinedAt ?? 0;
+        if (joined < masterJoinedAt) {
+          masterEntry = { userId, email: m.email ?? userId };
+          masterJoinedAt = joined;
+        }
       }
-      setOtherMasters(others);
+      if (masterEntry && masterEntry.userId !== currentUserId) {
+        setActiveMasterEmail(masterEntry.email);
+        if (roleRef.current !== 'viewer') setRole('viewer');
+      } else if (masterEntry && masterEntry.userId === currentUserId) {
+        setActiveMasterEmail(currentUserEmail);
+        if (roleRef.current !== 'master') setRole('master');
+      } else {
+        setActiveMasterEmail(null);
+        // no master present — if I'm connecting, promote myself
+        if (roleRef.current === 'connecting') {
+          channel.track({
+            role: 'master',
+            email: currentUserEmail,
+            joinedAt: Date.now(),
+          });
+          setRole('master');
+        }
+      }
     });
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        await channel.track({ role: 'master', email: currentUserEmail });
+        await channel.track({
+          role: 'viewer',
+          email: currentUserEmail,
+          joinedAt: Date.now(),
+        });
       }
     });
+
     channelRef.current = channel;
     return () => {
       channel.untrack();
@@ -173,6 +281,7 @@ export function Master({
   }, [setId]);
 
   useEffect(() => {
+    if (role !== 'master') return;
     const ch = channelRef.current;
     if (!ch) return;
     scrollFractionRef.current = 0;
@@ -182,9 +291,10 @@ export function Master({
       event: 'state',
       payload: { index, transposeOverride, fontScale, showChords, scrollFraction: 0 },
     });
-  }, [index, transposeOverride, fontScale, showChords]);
+  }, [index, transposeOverride, fontScale, showChords, role]);
 
   function onContentScroll() {
+    if (roleRef.current !== 'master') return;
     const el = scrollRef.current;
     if (!el) return;
     const max = el.scrollHeight - el.clientHeight;
@@ -212,6 +322,7 @@ export function Master({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (editing) return;
+      if (roleRef.current !== 'master') return;
       const t = e.target as HTMLElement;
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
       const nav = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', '+', '=', '-', '_', '0'];
@@ -236,10 +347,70 @@ export function Master({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slidesLocal.length, index, editing]);
 
-  const canPrev = index > 0;
-  const canNext = index < slidesLocal.length - 1;
-  const goPrev = () => canPrev && setIndex((i) => Math.max(0, i - 1));
-  const goNext = () => canNext && setIndex((i) => Math.min(slidesLocal.length - 1, i + 1));
+  const isMaster = role === 'master';
+  const isViewer = role === 'viewer';
+
+  const canPrev = index > 0 && isMaster;
+  const canNext = index < slidesLocal.length - 1 && isMaster;
+  const goPrev = () => {
+    if (!isMaster) return;
+    if (canPrev) setIndex((i) => Math.max(0, i - 1));
+  };
+  const goNext = () => {
+    if (!isMaster) return;
+    if (canNext) setIndex((i) => Math.min(slidesLocal.length - 1, i + 1));
+  };
+
+  function requestLead() {
+    const ch = channelRef.current;
+    if (!ch) return;
+    ch.send({
+      type: 'broadcast',
+      event: 'lead_request',
+      payload: { fromUserId: currentUserId, fromEmail: currentUserEmail },
+    });
+    setPendingRequest({ expiresAt: Date.now() + 10_000 });
+  }
+
+  function takeControlDirect() {
+    const ch = channelRef.current;
+    if (!ch) return;
+    ch.track({ role: 'master', email: currentUserEmail, joinedAt: Date.now() });
+    setRole('master');
+  }
+
+  function grantLead() {
+    const ch = channelRef.current;
+    if (!ch || !incomingRequest) return;
+    ch.send({
+      type: 'broadcast',
+      event: 'lead_grant',
+      payload: { toUserId: incomingRequest.userId },
+    });
+    // demote self
+    ch.track({ role: 'viewer', email: currentUserEmail, joinedAt: Date.now() });
+    setRole('viewer');
+    setActiveMasterEmail(incomingRequest.email);
+    setIncomingRequest(null);
+  }
+
+  function denyLead() {
+    const ch = channelRef.current;
+    if (!ch || !incomingRequest) return;
+    ch.send({
+      type: 'broadcast',
+      event: 'lead_deny',
+      payload: { toUserId: incomingRequest.userId },
+    });
+    setIncomingRequest(null);
+  }
+
+  const secondsLeftPending = pendingRequest
+    ? Math.max(0, Math.ceil((pendingRequest.expiresAt - nowTick) / 1000))
+    : 0;
+  const secondsLeftIncoming = incomingRequest
+    ? Math.max(0, Math.ceil((incomingRequest.expiresAt - nowTick) / 1000))
+    : 0;
 
   const filteredSongs = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -277,6 +448,7 @@ export function Master({
           paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
           paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
         }}
+        data-viewer={isViewer ? '1' : undefined}
       >
         <Link
           href={`/churches/${slug}/sets/${setId}`}
@@ -292,6 +464,10 @@ export function Master({
         >
           ☰
         </button>
+
+        <div
+          className={`flex flex-wrap gap-3 items-center flex-1 ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`}
+        >
 
         <div className="flex items-center gap-1">
           <button
@@ -431,6 +607,8 @@ export function Master({
           ✎
         </button>
 
+        </div>
+
         <a
           href={projectorUrl}
           target="_blank"
@@ -442,15 +620,48 @@ export function Master({
         </a>
       </div>
 
-      {otherMasters.length > 0 && (
-        <div className="border-b border-yellow-600/50 bg-yellow-950/40 text-yellow-200 text-sm px-4 py-2 flex items-center gap-2">
-          <span>⚠</span>
+      {isViewer && (
+        <div className="border-b border-yellow-600/50 bg-yellow-950/40 text-yellow-200 text-sm px-4 py-2 flex items-center gap-3 flex-wrap">
+          <span>👁</span>
           <span>
-            Anche{' '}
-            <span className="font-medium">{otherMasters.join(', ')}</span>{' '}
-            {otherMasters.length === 1 ? 'sta' : 'stanno'} dirigendo — le vostre
-            modifiche si sovrascriveranno.
+            Sei in modalità viewer.
+            {activeMasterEmail ? (
+              <>
+                {' '}
+                Master attivo:{' '}
+                <span className="font-medium">{activeMasterEmail}</span>.
+              </>
+            ) : (
+              ' Nessun master connesso.'
+            )}
           </span>
+          <span className="flex-1" />
+          {pendingRequest ? (
+            <span className="text-xs text-yellow-100">
+              Richiesta inviata… ({secondsLeftPending}s)
+            </span>
+          ) : activeMasterEmail ? (
+            <button
+              type="button"
+              onClick={requestLead}
+              className="px-3 py-1 rounded border border-yellow-400 text-yellow-100 hover:bg-yellow-500/10 text-xs"
+            >
+              Richiedi controllo
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={takeControlDirect}
+              className="px-3 py-1 rounded border border-yellow-400 text-yellow-100 hover:bg-yellow-500/10 text-xs"
+            >
+              Prendi il controllo
+            </button>
+          )}
+        </div>
+      )}
+      {role === 'connecting' && (
+        <div className="border-b border-border bg-panel/60 text-zinc-400 text-sm px-4 py-2">
+          Connessione…
         </div>
       )}
 
@@ -535,6 +746,36 @@ export function Master({
           </div>
         </div>
       </div>
+
+      {incomingRequest && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-panel border border-border rounded-lg w-full max-w-sm p-5 space-y-4">
+            <h2 className="text-lg font-semibold">Richiesta di controllo</h2>
+            <p className="text-sm text-zinc-300">
+              <span className="font-medium">{incomingRequest.email}</span> chiede
+              di prendere il controllo del set. Vuoi delegargli la direzione?
+            </p>
+            <div className="text-xs text-zinc-500">
+              Se non rispondi entro <b>{secondsLeftIncoming}s</b> la richiesta
+              sarà rifiutata.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={denyLead}
+                className="px-3 py-1.5 rounded-md border border-border text-sm"
+              >
+                Nega
+              </button>
+              <button
+                onClick={grantLead}
+                className="px-3 py-1.5 rounded-md bg-accent text-black text-sm"
+              >
+                Autorizza
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div
