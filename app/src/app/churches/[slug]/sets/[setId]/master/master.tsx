@@ -26,6 +26,7 @@ export type Slide = {
   title: string;
   artist: string | null;
   originalKey: string | null;
+  songTempo: number | null;
   transpose: number;
   body: string;
   baseBody: string;
@@ -163,6 +164,32 @@ export function Master({
   useEffect(() => {
     roleRef.current = role;
   }, [role]);
+
+  // When the active song changes and I'm master, adopt its default_tempo
+  useEffect(() => {
+    if (role !== 'master') return;
+    const t = slidesLocal[index]?.songTempo;
+    if (!t || t <= 0) return;
+    if (t === metronomeBpm) return;
+    setMetronomeBpm(t);
+    const ch = channelRef.current;
+    if (metronomeRunning) {
+      const startAt = Date.now() + 100;
+      setMetronomeStartAt(startAt);
+      ch?.send({
+        type: 'broadcast',
+        event: 'metronome_update',
+        payload: { running: true, bpm: t, startAt },
+      });
+    } else {
+      ch?.send({
+        type: 'broadcast',
+        event: 'metronome_update',
+        payload: { running: false, bpm: t, startAt: metronomeStartAt },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, role, slidesLocal]);
 
   // Restore local emit-metronome preference
   useEffect(() => {
