@@ -7,7 +7,10 @@ import { parseOnSong, SongView } from '@/lib/onsong';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
 import { addSongToSet, updateSetItem } from '@/lib/sets/actions';
+import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
 
 export type SlideVariation = {
   id: string;
@@ -82,7 +85,12 @@ export function Master({
   >(null);
   const [pendingRequest, setPendingRequest] = useState<{ expiresAt: number } | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
+  const [metronomeBpm, setMetronomeBpm] = useState(90);
+  const [metronomeRunning, setMetronomeRunning] = useState(false);
+  const [metronomeStartAt, setMetronomeStartAt] = useState(0);
+  const [emitMetronome, setEmitMetronome] = useState(false);
   const roleRef = useRef(role);
+  const metronomeRef = useRef<Metronome | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollFractionRef = useRef(0);
@@ -137,9 +145,60 @@ export function Master({
     stateRef.current = { index, transposeOverride, fontScale, showChords };
   }, [index, transposeOverride, fontScale, showChords]);
 
+  const metronomeStateRef = useRef<MetronomeUpdate>({
+    running: metronomeRunning,
+    bpm: metronomeBpm,
+    startAt: metronomeStartAt,
+  });
+  useEffect(() => {
+    metronomeStateRef.current = {
+      running: metronomeRunning,
+      bpm: metronomeBpm,
+      startAt: metronomeStartAt,
+    };
+  }, [metronomeRunning, metronomeBpm, metronomeStartAt]);
+
   useEffect(() => {
     roleRef.current = role;
   }, [role]);
+
+  // Restore local emit-metronome preference
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(EMIT_METRONOME_KEY);
+      if (v === '1') setEmitMetronome(true);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(EMIT_METRONOME_KEY, emitMetronome ? '1' : '0');
+    } catch {}
+  }, [emitMetronome]);
+
+  // Drive the local audio engine from current metronome state and toggle
+  useEffect(() => {
+    if (emitMetronome && !metronomeRef.current) {
+      metronomeRef.current = new Metronome();
+    }
+    if (!metronomeRef.current) return;
+    if (emitMetronome && metronomeRunning) {
+      metronomeRef.current.update({
+        running: true,
+        bpm: metronomeBpm,
+        startAt: metronomeStartAt,
+      });
+    } else {
+      metronomeRef.current.stop();
+    }
+  }, [emitMetronome, metronomeRunning, metronomeBpm, metronomeStartAt]);
+
+  useEffect(() => {
+    return () => {
+      metronomeRef.current?.dispose();
+      metronomeRef.current = null;
+    };
+  }, []);
 
   // countdown ticker for request timeouts
   useEffect(() => {
@@ -176,6 +235,18 @@ export function Master({
           scrollFraction: scrollFractionRef.current,
         },
       });
+      channel.send({
+        type: 'broadcast',
+        event: 'metronome_update',
+        payload: metronomeStateRef.current,
+      });
+    });
+
+    channel.on('broadcast', { event: 'metronome_update' }, ({ payload }) => {
+      const p = payload as MetronomeUpdate;
+      setMetronomeRunning(p.running);
+      if (typeof p.bpm === 'number' && p.bpm > 0) setMetronomeBpm(p.bpm);
+      if (typeof p.startAt === 'number' && p.startAt > 0) setMetronomeStartAt(p.startAt);
     });
 
     // viewer applies incoming state so its UI mirrors the master
@@ -360,6 +431,39 @@ export function Master({
     if (!isMaster) return;
     if (canNext) setIndex((i) => Math.min(slidesLocal.length - 1, i + 1));
   };
+
+  function broadcastMetronome(update: MetronomeUpdate) {
+    const ch = channelRef.current;
+    if (!ch) return;
+    ch.send({ type: 'broadcast', event: 'metronome_update', payload: update });
+  }
+
+  function toggleMetronome() {
+    if (!isMaster) return;
+    if (metronomeRunning) {
+      setMetronomeRunning(false);
+      broadcastMetronome({ running: false, bpm: metronomeBpm, startAt: metronomeStartAt });
+    } else {
+      const startAt = Date.now() + 200; // small lead-in for network jitter
+      setMetronomeRunning(true);
+      setMetronomeStartAt(startAt);
+      broadcastMetronome({ running: true, bpm: metronomeBpm, startAt });
+    }
+  }
+
+  function bumpBpm(delta: number) {
+    if (!isMaster) return;
+    const nextBpm = Math.max(30, Math.min(240, metronomeBpm + delta));
+    setMetronomeBpm(nextBpm);
+    if (metronomeRunning) {
+      // re-anchor so beats stay on-grid at the new tempo starting now
+      const startAt = Date.now() + 100;
+      setMetronomeStartAt(startAt);
+      broadcastMetronome({ running: true, bpm: nextBpm, startAt });
+    } else {
+      broadcastMetronome({ running: false, bpm: nextBpm, startAt: metronomeStartAt });
+    }
+  }
 
   function requestLead() {
     const ch = channelRef.current;
@@ -582,6 +686,35 @@ export function Master({
           ♪
         </button>
 
+        <div className="flex items-center gap-1" title="Metronomo">
+          <button
+            onClick={() => bumpBpm(-1)}
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            title="BPM -1"
+          >
+            −
+          </button>
+          <button
+            onClick={toggleMetronome}
+            className={`h-9 px-2 rounded border text-sm font-mono flex items-center justify-center min-w-[5rem] ${
+              metronomeRunning
+                ? 'border-accent text-accent'
+                : 'border-border text-zinc-300 hover:border-accent'
+            }`}
+            title={metronomeRunning ? 'Ferma metronomo' : 'Avvia metronomo'}
+            aria-pressed={metronomeRunning}
+          >
+            {metronomeRunning ? '■' : '▶'} {metronomeBpm}
+          </button>
+          <button
+            onClick={() => bumpBpm(1)}
+            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            title="BPM +1"
+          >
+            +
+          </button>
+        </div>
+
         <span className="flex-1" />
 
         <button
@@ -608,6 +741,24 @@ export function Master({
         </button>
 
         </div>
+
+        <button
+          type="button"
+          onClick={() => setEmitMetronome((v) => !v)}
+          className={`h-9 px-2 rounded border text-lg leading-none flex items-center justify-center ${
+            emitMetronome
+              ? 'border-accent text-accent'
+              : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+          title={
+            emitMetronome
+              ? 'Emetti metronomo qui: acceso'
+              : 'Emetti metronomo qui: spento (attivare sul dispositivo collegato al mixer)'
+          }
+          aria-pressed={emitMetronome}
+        >
+          {emitMetronome ? '🔊' : '🔈'}
+        </button>
 
         <a
           href={projectorUrl}
