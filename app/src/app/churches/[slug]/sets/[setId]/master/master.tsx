@@ -207,7 +207,7 @@ export function Master({
       setIncomingRequest({
         userId: fromUserId,
         email: fromEmail,
-        expiresAt: Date.now() + 10_000,
+        expiresAt: Date.now() + 20_000,
       });
     });
 
@@ -369,7 +369,7 @@ export function Master({
       event: 'lead_request',
       payload: { fromUserId: currentUserId, fromEmail: currentUserEmail },
     });
-    setPendingRequest({ expiresAt: Date.now() + 10_000 });
+    setPendingRequest({ expiresAt: Date.now() + 20_000 });
   }
 
   function takeControlDirect() {
