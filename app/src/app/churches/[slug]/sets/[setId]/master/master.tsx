@@ -56,6 +56,7 @@ export function Master({
   availableSongs,
   currentUserId,
   currentUserEmail,
+  canBeMaster,
 }: {
   setId: string;
   setName: string;
@@ -64,6 +65,7 @@ export function Master({
   availableSongs: AvailableSong[];
   currentUserId: string;
   currentUserEmail: string;
+  canBeMaster: boolean;
 }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
@@ -321,14 +323,18 @@ export function Master({
         if (roleRef.current !== 'master') setRole('master');
       } else {
         setActiveMasterEmail(null);
-        // no master present — if I'm connecting, promote myself
+        // no master present — auto-promote only if allowed to write
         if (roleRef.current === 'connecting') {
-          channel.track({
-            role: 'master',
-            email: currentUserEmail,
-            joinedAt: Date.now(),
-          });
-          setRole('master');
+          if (canBeMaster) {
+            channel.track({
+              role: 'master',
+              email: currentUserEmail,
+              joinedAt: Date.now(),
+            });
+            setRole('master');
+          } else {
+            setRole('viewer');
+          }
         }
       }
     });
@@ -466,6 +472,7 @@ export function Master({
   }
 
   function requestLead() {
+    if (!canBeMaster) return;
     const ch = channelRef.current;
     if (!ch) return;
     ch.send({
@@ -477,6 +484,7 @@ export function Master({
   }
 
   function takeControlDirect() {
+    if (!canBeMaster) return;
     const ch = channelRef.current;
     if (!ch) return;
     ch.track({ role: 'master', email: currentUserEmail, joinedAt: Date.now() });
@@ -787,7 +795,11 @@ export function Master({
             )}
           </span>
           <span className="flex-1" />
-          {pendingRequest ? (
+          {!canBeMaster ? (
+            <span className="text-xs text-yellow-100/70">
+              Solo lettura — non hai i permessi per dirigere.
+            </span>
+          ) : pendingRequest ? (
             <span className="text-xs text-yellow-100">
               Richiesta inviata… ({secondsLeftPending}s)
             </span>

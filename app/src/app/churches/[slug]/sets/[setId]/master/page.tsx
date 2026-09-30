@@ -19,6 +19,12 @@ export default async function MasterPage({
     .maybeSingle();
   if (!set) notFound();
 
+  const [{ data: isOwnerOrLead }, { data: canWriteShared }] = await Promise.all([
+    supabase.rpc('set_owner_or_church_lead', { p_set_id: setId }),
+    supabase.rpc('can_write_set_shared', { p_set_id: setId }),
+  ]);
+  const canBeMaster = !!isOwnerOrLead || !!canWriteShared;
+
   const { data: availableSongs } = await supabase
     .from('songs')
     .select('id, title, artist, original_key')
@@ -111,6 +117,7 @@ export default async function MasterPage({
       availableSongs={(availableSongs as any) ?? []}
       currentUserId={user.id}
       currentUserEmail={user.email ?? ''}
+      canBeMaster={canBeMaster}
     />
   );
 }
