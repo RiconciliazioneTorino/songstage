@@ -748,31 +748,40 @@ export function Master({
       </div>
 
       {incomingRequest && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-panel border border-border rounded-lg w-full max-w-sm p-5 space-y-4">
-            <h2 className="text-lg font-semibold">Richiesta di controllo</h2>
-            <p className="text-sm text-zinc-300">
-              <span className="font-medium">{incomingRequest.email}</span> chiede
-              di prendere il controllo del set. Vuoi delegargli la direzione?
-            </p>
-            <div className="text-xs text-zinc-500">
-              Se non rispondi entro <b>{secondsLeftIncoming}s</b> la richiesta
-              sarà rifiutata.
+        <div
+          role="alertdialog"
+          aria-labelledby="lead-req-title"
+          className="fixed bottom-4 right-4 z-40 w-[min(20rem,calc(100vw-2rem))] bg-panel/95 backdrop-blur border border-accent/60 rounded-lg shadow-lg p-3 space-y-2"
+          style={{
+            bottom: 'max(1rem, env(safe-area-inset-bottom))',
+            right: 'max(1rem, env(safe-area-inset-right))',
+          }}
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <div id="lead-req-title" className="text-sm font-semibold">
+              Richiesta di controllo
             </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={denyLead}
-                className="px-3 py-1.5 rounded-md border border-border text-sm"
-              >
-                Nega
-              </button>
-              <button
-                onClick={grantLead}
-                className="px-3 py-1.5 rounded-md bg-accent text-black text-sm"
-              >
-                Autorizza
-              </button>
+            <div className="text-xs text-zinc-500 font-mono">
+              {secondsLeftIncoming}s
             </div>
+          </div>
+          <p className="text-xs text-zinc-300 leading-snug">
+            <span className="font-medium">{incomingRequest.email}</span> chiede
+            di prendere il controllo del set.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={denyLead}
+              className="px-2.5 py-1 rounded border border-border hover:border-accent text-xs"
+            >
+              Nega
+            </button>
+            <button
+              onClick={grantLead}
+              className="px-2.5 py-1 rounded bg-accent text-black text-xs font-medium"
+            >
+              Autorizza
+            </button>
           </div>
         </div>
       )}
