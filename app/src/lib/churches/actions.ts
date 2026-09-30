@@ -186,6 +186,46 @@ export async function inviteChurchMember(
   return { invited: true };
 }
 
+export async function updateChurchMemberRole(
+  churchId: string,
+  userId: string,
+  newRole: Role
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  const { data: target } = await supabase
+    .from('church_members')
+    .select('role')
+    .eq('church_id', churchId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!target) return { error: 'Membro non trovato' };
+  if (target.role === newRole) return {};
+
+  if (target.role === 'admin' && newRole !== 'admin') {
+    const { count } = await supabase
+      .from('church_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .eq('role', 'admin');
+    if ((count ?? 0) <= 1) {
+      return { error: 'Non puoi togliere il ruolo di admin all\'ultimo admin.' };
+    }
+  }
+
+  const { error } = await supabase
+    .from('church_members')
+    .update({ role: newRole })
+    .eq('church_id', churchId)
+    .eq('user_id', userId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/churches/[slug]`, 'page');
+  return {};
+}
+
 export async function removeChurchMember(
   churchId: string,
   userId: string

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AddMemberForm } from './add-member-form';
 import { BandsSection } from './bands-section';
+import { MemberRoleSelect } from './member-role-select';
 import { RemoveMemberButton } from './remove-member-button';
 
 export default async function ChurchPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -91,7 +92,15 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
                 <div className="text-xs text-zinc-500 truncate">{m.user.email}</div>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="text-xs text-zinc-400 uppercase tracking-wide">{m.role}</span>
+                {isAdmin ? (
+                  <MemberRoleSelect
+                    churchId={church.id}
+                    userId={m.user.id}
+                    role={m.role}
+                  />
+                ) : (
+                  <span className="text-xs text-zinc-400 uppercase tracking-wide">{m.role}</span>
+                )}
                 {isAdmin && (
                   <RemoveMemberButton
                     churchId={church.id}
