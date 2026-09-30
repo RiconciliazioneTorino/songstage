@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AddMemberForm } from './add-member-form';
 import { BandsSection } from './bands-section';
+import { RemoveMemberButton } from './remove-member-button';
 
 export default async function ChurchPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -85,11 +86,20 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
               key={m.user.id}
               className="flex items-center justify-between rounded-md border border-border bg-panel px-3 py-2"
             >
-              <div>
-                <div className="text-sm">{m.user.display_name ?? m.user.email}</div>
-                <div className="text-xs text-zinc-500">{m.user.email}</div>
+              <div className="min-w-0">
+                <div className="text-sm truncate">{m.user.display_name ?? m.user.email}</div>
+                <div className="text-xs text-zinc-500 truncate">{m.user.email}</div>
               </div>
-              <span className="text-xs text-zinc-400 uppercase tracking-wide">{m.role}</span>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <span className="text-xs text-zinc-400 uppercase tracking-wide">{m.role}</span>
+                {isAdmin && (
+                  <RemoveMemberButton
+                    churchId={church.id}
+                    userId={m.user.id}
+                    label={m.user.display_name ?? m.user.email}
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -186,6 +186,44 @@ export async function inviteChurchMember(
   return { invited: true };
 }
 
+export async function removeChurchMember(
+  churchId: string,
+  userId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  const { data: target } = await supabase
+    .from('church_members')
+    .select('role')
+    .eq('church_id', churchId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!target) return { error: 'Membro non trovato' };
+
+  if (target.role === 'admin') {
+    const { count } = await supabase
+      .from('church_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('church_id', churchId)
+      .eq('role', 'admin');
+    if ((count ?? 0) <= 1) {
+      return { error: 'Non puoi rimuovere l\'ultimo admin della chiesa.' };
+    }
+  }
+
+  const { error } = await supabase
+    .from('church_members')
+    .delete()
+    .eq('church_id', churchId)
+    .eq('user_id', userId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/churches/[slug]`, 'page');
+  return {};
+}
+
 export async function cancelChurchInvitation(
   invitationId: string
 ): Promise<{ error?: string }> {
