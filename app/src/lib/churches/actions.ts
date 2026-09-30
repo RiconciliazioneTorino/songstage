@@ -43,34 +43,90 @@ export async function createChurch(formData: FormData): Promise<{ error?: string
   redirect(`/churches/${church.slug}`);
 }
 
+type Role = 'admin' | 'director' | 'musico' | 'lector';
+
 export async function addChurchMember(
   churchId: string,
-  email: string,
-  role: 'admin' | 'director' | 'musico' | 'lector'
+  userId: string,
+  role: Role
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato' };
 
-  const { data: target } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', email.trim().toLowerCase())
-    .maybeSingle();
-
-  if (!target) {
-    return { error: 'Quell\'utente non si è ancora registrato. Chiedigli di accedere prima all\'app.' };
-  }
-
   const { error } = await supabase
     .from('church_members')
-    .insert({ church_id: churchId, user_id: target.id, role });
+    .insert({ church_id: churchId, user_id: userId, role });
 
   if (error) {
     if (error.code === '23505') return { error: 'È già membro della chiesa' };
     return { error: error.message };
   }
 
+  revalidatePath(`/churches/[slug]`, 'page');
+  return {};
+}
+
+export async function searchUsersForChurch(
+  churchId: string,
+  query: string
+): Promise<{ error?: string; users?: { id: string; email: string; display_name: string | null }[] }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('search_users_for_church', {
+    p_church_id: churchId,
+    p_query: query,
+  });
+  if (error) return { error: error.message };
+  return { users: (data ?? []) as any };
+}
+
+export async function inviteChurchMember(
+  churchId: string,
+  email: string,
+  role: Role
+): Promise<{ error?: string; added?: boolean; invited?: boolean }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) return { error: 'Email non valida' };
+
+  const { data: target } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', cleanEmail)
+    .maybeSingle();
+
+  if (target) {
+    const { error } = await supabase
+      .from('church_members')
+      .insert({ church_id: churchId, user_id: target.id, role });
+    if (error) {
+      if (error.code === '23505') return { error: 'È già membro della chiesa' };
+      return { error: error.message };
+    }
+    revalidatePath(`/churches/[slug]`, 'page');
+    return { added: true };
+  }
+
+  const { error } = await supabase
+    .from('church_invitations')
+    .upsert(
+      { church_id: churchId, email: cleanEmail, role, created_by: user.id },
+      { onConflict: 'church_id,email' }
+    );
+  if (error) return { error: error.message };
+  revalidatePath(`/churches/[slug]`, 'page');
+  return { invited: true };
+}
+
+export async function cancelChurchInvitation(
+  invitationId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.from('church_invitations').delete().eq('id', invitationId);
+  if (error) return { error: error.message };
   revalidatePath(`/churches/[slug]`, 'page');
   return {};
 }

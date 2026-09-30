@@ -39,6 +39,14 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
 
   const canManageBands = myRole === 'admin' || myRole === 'director';
 
+  const { data: invitations } = isAdmin
+    ? await supabase
+        .from('church_invitations')
+        .select('id, email, role, created_at')
+        .eq('church_id', church.id)
+        .order('created_at', { ascending: false })
+    : { data: [] as any[] };
+
   return (
     <main className="min-h-screen p-8 max-w-3xl mx-auto">
       <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white">← Chiese</Link>
@@ -86,7 +94,12 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
           ))}
         </div>
 
-        {isAdmin && <AddMemberForm churchId={church.id} />}
+        {isAdmin && (
+          <AddMemberForm
+            churchId={church.id}
+            invitations={(invitations ?? []) as any}
+          />
+        )}
       </section>
 
       <section className="mt-10">
