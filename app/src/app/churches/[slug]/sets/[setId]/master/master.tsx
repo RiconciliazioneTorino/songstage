@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import { parseOnSong, SongView } from '@/lib/onsong';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
-import { addSongToSet, updateSetItem } from '@/lib/sets/actions';
+import {
+  addSongToSet,
+  heartbeatSetMaster,
+  releaseSetMaster,
+  updateSetItem,
+} from '@/lib/sets/actions';
 import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -164,6 +169,17 @@ export function Master({
   useEffect(() => {
     roleRef.current = role;
   }, [role]);
+
+  // Heartbeat while master so the sets listing can show "live" badge
+  useEffect(() => {
+    if (role !== 'master') return;
+    heartbeatSetMaster(setId);
+    const t = setInterval(() => heartbeatSetMaster(setId), 15_000);
+    return () => {
+      clearInterval(t);
+      releaseSetMaster(setId);
+    };
+  }, [role, setId]);
 
   // When the active song changes and I'm master, adopt its default_tempo
   useEffect(() => {

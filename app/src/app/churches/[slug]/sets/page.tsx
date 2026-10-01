@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
+const LIVE_THRESHOLD_MS = 45_000;
+
 export default async function SetsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const supabase = await createClient();
@@ -17,9 +19,27 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
 
   const { data: sets } = await supabase
     .from('sets')
-    .select('id, name, event_date, event_type')
+    .select(
+      'id, name, event_date, event_type, active_master_heartbeat_at, creator:users!sets_created_by_fkey(email, display_name), items:set_items(count)'
+    )
     .eq('church_id', church.id)
     .order('event_date', { ascending: false, nullsFirst: false });
+
+  const now = Date.now();
+  const rows = (sets ?? []).map((s: any) => {
+    const heartbeat = s.active_master_heartbeat_at
+      ? new Date(s.active_master_heartbeat_at).getTime()
+      : 0;
+    return {
+      id: s.id as string,
+      name: s.name as string,
+      event_date: s.event_date as string | null,
+      event_type: s.event_type as string | null,
+      creatorLabel: (s.creator?.display_name as string) ?? (s.creator?.email as string) ?? '',
+      itemsCount: (s.items?.[0]?.count as number) ?? 0,
+      isLive: heartbeat > 0 && now - heartbeat < LIVE_THRESHOLD_MS,
+    };
+  });
 
   return (
     <main className="min-h-screen p-8 max-w-3xl mx-auto">
@@ -36,25 +56,40 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
         </Link>
       </header>
 
-      {(sets ?? []).length === 0 ? (
+      {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-center text-zinc-500">
           Nessun set ancora.
         </div>
       ) : (
         <div className="space-y-2">
-          {(sets ?? []).map((s) => (
+          {rows.map((s) => (
             <Link
               key={s.id}
               href={`/churches/${church.slug}/sets/${s.id}`}
               className="block rounded-md border border-border bg-panel p-3 hover:border-accent transition"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{s.name}</div>
-                  {s.event_type && <div className="text-xs text-zinc-500">{s.event_type}</div>}
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium flex items-center gap-2 flex-wrap">
+                    <span className="truncate">{s.name}</span>
+                    {s.isLive && (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-bold text-red-100 bg-red-600/80 rounded px-1.5 py-0.5">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75 animate-ping" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-100" />
+                        </span>
+                        In diretta
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-zinc-500 flex gap-2 flex-wrap">
+                    {s.event_type && <span>{s.event_type}</span>}
+                    <span>· {s.itemsCount} {s.itemsCount === 1 ? 'canzone' : 'canzoni'}</span>
+                    {s.creatorLabel && <span>· creato da {s.creatorLabel}</span>}
+                  </div>
                 </div>
                 {s.event_date && (
-                  <span className="text-xs text-zinc-400">{s.event_date}</span>
+                  <span className="text-xs text-zinc-400 flex-shrink-0">{s.event_date}</span>
                 )}
               </div>
             </Link>

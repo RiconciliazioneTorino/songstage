@@ -290,6 +290,16 @@ export async function unshareSetWithBand(
   return {};
 }
 
+export async function heartbeatSetMaster(setId: string): Promise<void> {
+  const supabase = await createClient();
+  await supabase.rpc('heartbeat_set_master', { p_set_id: setId });
+}
+
+export async function releaseSetMaster(setId: string): Promise<void> {
+  const supabase = await createClient();
+  await supabase.rpc('release_set_master', { p_set_id: setId });
+}
+
 export async function updateSetItem(
   itemId: string,
   patch: {
