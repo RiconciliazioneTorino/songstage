@@ -19,24 +19,57 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
 
   const { data: sets } = await supabase
     .from('sets')
-    .select(
-      'id, name, event_date, event_type, active_master_heartbeat_at, creator:users!sets_created_by_fkey(email, display_name), items:set_items(count)'
-    )
+    .select('id, name, event_date, event_type, created_by, active_master_heartbeat_at')
     .eq('church_id', church.id)
     .order('event_date', { ascending: false, nullsFirst: false });
 
+  const list = sets ?? [];
+  const setIds = list.map((s: any) => s.id);
+  const creatorIds = Array.from(
+    new Set(list.map((s: any) => s.created_by).filter(Boolean))
+  );
+
+  // Creators (join readable through church_members policy for shared churches)
+  const creatorsMap = new Map<string, { email: string; display_name: string | null }>();
+  if (creatorIds.length > 0) {
+    const { data: creators } = await supabase
+      .from('users')
+      .select('id, email, display_name')
+      .in('id', creatorIds);
+    for (const c of creators ?? []) {
+      creatorsMap.set(c.id as string, {
+        email: c.email as string,
+        display_name: c.display_name as string | null,
+      });
+    }
+  }
+
+  // Song counts
+  const countsMap = new Map<string, number>();
+  if (setIds.length > 0) {
+    const { data: items } = await supabase
+      .from('set_items')
+      .select('set_id')
+      .in('set_id', setIds);
+    for (const it of items ?? []) {
+      const sid = it.set_id as string;
+      countsMap.set(sid, (countsMap.get(sid) ?? 0) + 1);
+    }
+  }
+
   const now = Date.now();
-  const rows = (sets ?? []).map((s: any) => {
+  const rows = list.map((s: any) => {
     const heartbeat = s.active_master_heartbeat_at
       ? new Date(s.active_master_heartbeat_at).getTime()
       : 0;
+    const creator = creatorsMap.get(s.created_by);
     return {
       id: s.id as string,
       name: s.name as string,
       event_date: s.event_date as string | null,
       event_type: s.event_type as string | null,
-      creatorLabel: (s.creator?.display_name as string) ?? (s.creator?.email as string) ?? '',
-      itemsCount: (s.items?.[0]?.count as number) ?? 0,
+      creatorLabel: creator?.display_name || creator?.email || '',
+      itemsCount: countsMap.get(s.id) ?? 0,
       isLive: heartbeat > 0 && now - heartbeat < LIVE_THRESHOLD_MS,
     };
   });
