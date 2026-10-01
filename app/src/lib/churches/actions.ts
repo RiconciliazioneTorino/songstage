@@ -274,6 +274,21 @@ export async function cancelChurchInvitation(
   return {};
 }
 
+export async function updateDisplayName(name: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+  const clean = name.trim().slice(0, 60);
+  if (!clean) return { error: 'Il nome non può essere vuoto' };
+  const { error } = await supabase
+    .from('users')
+    .update({ display_name: clean })
+    .eq('id', user.id);
+  if (error) return { error: error.message };
+  revalidatePath('/dashboard');
+  return {};
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

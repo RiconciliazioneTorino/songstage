@@ -2,11 +2,19 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { signOut } from '@/lib/churches/actions';
+import { DisplayNameForm } from './display-name-form';
 
 export default async function Dashboard() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  const { data: me } = await supabase
+    .from('users')
+    .select('display_name')
+    .eq('id', user.id)
+    .maybeSingle();
+  const displayName = (me?.display_name as string) ?? '';
 
   const { data: memberships } = await supabase
     .from('church_members')
@@ -23,7 +31,11 @@ export default async function Dashboard() {
       <header className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Chiese</h1>
-          <p className="text-zinc-400 text-sm">{user.email}</p>
+          <div className="text-zinc-400 text-sm flex items-center gap-2 flex-wrap mt-1">
+            <span className="text-white">{displayName || user.email}</span>
+            <DisplayNameForm initial={displayName} />
+            {displayName && <span>· {user.email}</span>}
+          </div>
         </div>
         <form action={signOut}>
           <button className="text-sm text-zinc-400 hover:text-white">Esci</button>
