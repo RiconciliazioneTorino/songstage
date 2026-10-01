@@ -278,12 +278,12 @@ export function SongsExplorer({
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {s.default_tempo && (
-                      <span className="text-xs text-zinc-400 font-mono">
+                      <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono">
                         {s.default_tempo} bpm
                       </span>
                     )}
                     {s.time_signature && (
-                      <span className="text-xs text-zinc-400 font-mono">
+                      <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono">
                         {s.time_signature}
                       </span>
                     )}
