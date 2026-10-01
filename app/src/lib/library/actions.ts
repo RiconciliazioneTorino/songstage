@@ -5,6 +5,93 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { parseOnSong } from '@/lib/onsong';
 
+export async function promoteSongToCanonical(
+  sourceSongId: string
+): Promise<{ error?: string; canonicalId?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato' };
+
+  const { data: me } = await supabase
+    .from('users')
+    .select('is_curator')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (!me?.is_curator) return { error: 'Solo un curatore può promuovere alla libreria canonica.' };
+
+  const { data: source } = await supabase
+    .from('songs')
+    .select('id, title, artist, original_key, default_tempo, time_signature, current_version_id, parent_song_id, church_id')
+    .eq('id', sourceSongId)
+    .maybeSingle();
+  if (!source) return { error: 'Canzone non trovata' };
+  if (!source.church_id) return { error: 'Già nella libreria canonica' };
+  if (source.parent_song_id) return { error: 'Questa canzone è già un adattamento di una canonica' };
+
+  let body = '';
+  if (source.current_version_id) {
+    const { data: version } = await supabase
+      .from('song_versions')
+      .select('body_onsong')
+      .eq('id', source.current_version_id)
+      .maybeSingle();
+    body = version?.body_onsong ?? '';
+  } else {
+    const { data: latest } = await supabase
+      .from('song_versions')
+      .select('body_onsong')
+      .eq('song_id', sourceSongId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    body = latest?.body_onsong ?? '';
+  }
+  if (!body) return { error: 'La canzone sorgente non ha contenuto da copiare' };
+
+  const { data: canonical, error: insErr } = await supabase
+    .from('songs')
+    .insert({
+      church_id: null,
+      title: source.title,
+      artist: source.artist,
+      original_key: source.original_key,
+      default_tempo: source.default_tempo,
+      time_signature: source.time_signature,
+      created_by: user.id,
+    })
+    .select('id')
+    .single();
+  if (insErr) return { error: insErr.message };
+
+  const { data: version, error: vErr } = await supabase
+    .from('song_versions')
+    .insert({
+      song_id: canonical.id,
+      version_number: 1,
+      body_onsong: body,
+      notes: 'Promossa dalla canzone della chiesa',
+      created_by: user.id,
+    })
+    .select('id')
+    .single();
+  if (vErr) return { error: vErr.message };
+
+  await supabase
+    .from('songs')
+    .update({ current_version_id: version.id })
+    .eq('id', canonical.id);
+
+  // Link source → canonical so it's recognized as an adopted copy
+  await supabase
+    .from('songs')
+    .update({ parent_song_id: canonical.id })
+    .eq('id', sourceSongId);
+
+  revalidatePath(`/library/${canonical.id}`);
+  revalidatePath(`/churches/[slug]/songs/${sourceSongId}`, 'page');
+  return { canonicalId: canonical.id };
+}
+
 export async function createCanonicalSong(
   formData: FormData
 ): Promise<{ error?: string }> {

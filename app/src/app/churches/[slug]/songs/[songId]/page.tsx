@@ -6,6 +6,7 @@ import { VersionsPanel } from './versions-panel';
 import { DeleteSongButton } from './delete-button';
 import { AudioPanel } from './audio-panel';
 import { VariationsActions } from './variations-actions';
+import { PromoteCanonicalButton } from './promote-canonical-button';
 
 export default async function SongPage({
   params,
@@ -32,6 +33,14 @@ export default async function SongPage({
     .eq('user_id', user.id)
     .maybeSingle();
   const canEdit = myMembership?.role === 'admin' || myMembership?.role === 'director';
+
+  const { data: me } = await supabase
+    .from('users')
+    .select('is_curator')
+    .eq('id', user.id)
+    .maybeSingle();
+  const isCurator = !!(me?.is_curator as boolean | null);
+  const canPromote = isCurator && !song.parent_song_id;
 
   let baseBody = '';
   if (song.current_version_id) {
@@ -131,17 +140,22 @@ export default async function SongPage({
           >
             ← Canzoni
           </Link>
-          {canEdit && (
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/churches/${slug}/songs/${songId}/edit`}
-                className="text-sm px-3 py-1 rounded-md border border-border hover:border-accent"
-              >
-                Modifica base
-              </Link>
-              <DeleteSongButton slug={slug} songId={songId} title={song.title} />
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {canPromote && (
+              <PromoteCanonicalButton songId={songId} title={song.title} />
+            )}
+            {canEdit && (
+              <>
+                <Link
+                  href={`/churches/${slug}/songs/${songId}/edit`}
+                  className="text-sm px-3 py-1 rounded-md border border-border hover:border-accent"
+                >
+                  Modifica base
+                </Link>
+                <DeleteSongButton slug={slug} songId={songId} title={song.title} />
+              </>
+            )}
+          </div>
         </div>
         {parent && (
           <div className="mt-3 text-xs text-zinc-500">
