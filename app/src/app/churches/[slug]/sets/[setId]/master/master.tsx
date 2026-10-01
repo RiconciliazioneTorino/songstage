@@ -17,6 +17,14 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
 
+function parseBeatsPerBar(sig: string | null | undefined): number {
+  if (!sig) return 4;
+  const m = sig.match(/^\s*(\d+)\s*\//);
+  if (!m) return 4;
+  const n = parseInt(m[1], 10);
+  return n >= 1 && n <= 32 ? n : 4;
+}
+
 export type SlideVariation = {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ export type Slide = {
   artist: string | null;
   originalKey: string | null;
   songTempo: number | null;
+  songTimeSignature: string | null;
   transpose: number;
   body: string;
   baseBody: string;
@@ -96,6 +105,7 @@ export function Master({
   const [metronomeBpm, setMetronomeBpm] = useState(90);
   const [metronomeRunning, setMetronomeRunning] = useState(false);
   const [metronomeStartAt, setMetronomeStartAt] = useState(0);
+  const [metronomeBeatsPerBar, setMetronomeBeatsPerBar] = useState(4);
   const [emitMetronome, setEmitMetronome] = useState(false);
   const roleRef = useRef(role);
   const metronomeRef = useRef<Metronome | null>(null);
@@ -157,14 +167,16 @@ export function Master({
     running: metronomeRunning,
     bpm: metronomeBpm,
     startAt: metronomeStartAt,
+    beatsPerBar: metronomeBeatsPerBar,
   });
   useEffect(() => {
     metronomeStateRef.current = {
       running: metronomeRunning,
       bpm: metronomeBpm,
       startAt: metronomeStartAt,
+      beatsPerBar: metronomeBeatsPerBar,
     };
-  }, [metronomeRunning, metronomeBpm, metronomeStartAt]);
+  }, [metronomeRunning, metronomeBpm, metronomeStartAt, metronomeBeatsPerBar]);
 
   useEffect(() => {
     roleRef.current = role;
@@ -181,13 +193,19 @@ export function Master({
     };
   }, [role, setId]);
 
-  // When the active song changes and I'm master, adopt its default_tempo
+  // When the active song changes and I'm master, adopt its tempo + time signature
   useEffect(() => {
     if (role !== 'master') return;
-    const t = slidesLocal[index]?.songTempo;
-    if (!t || t <= 0) return;
-    if (t === metronomeBpm) return;
-    setMetronomeBpm(t);
+    const slide = slidesLocal[index];
+    if (!slide) return;
+    const newBeats = parseBeatsPerBar(slide.songTimeSignature);
+    const t = slide.songTempo;
+    const tempoChanged = !!(t && t > 0 && t !== metronomeBpm);
+    const beatsChanged = newBeats !== metronomeBeatsPerBar;
+    if (!tempoChanged && !beatsChanged) return;
+    const nextBpm = tempoChanged ? t! : metronomeBpm;
+    if (tempoChanged) setMetronomeBpm(t!);
+    if (beatsChanged) setMetronomeBeatsPerBar(newBeats);
     const ch = channelRef.current;
     if (metronomeRunning) {
       const startAt = Date.now() + 100;
@@ -195,13 +213,18 @@ export function Master({
       ch?.send({
         type: 'broadcast',
         event: 'metronome_update',
-        payload: { running: true, bpm: t, startAt },
+        payload: { running: true, bpm: nextBpm, startAt, beatsPerBar: newBeats },
       });
     } else {
       ch?.send({
         type: 'broadcast',
         event: 'metronome_update',
-        payload: { running: false, bpm: t, startAt: metronomeStartAt },
+        payload: {
+          running: false,
+          bpm: nextBpm,
+          startAt: metronomeStartAt,
+          beatsPerBar: newBeats,
+        },
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -232,11 +255,12 @@ export function Master({
         running: true,
         bpm: metronomeBpm,
         startAt: metronomeStartAt,
+        beatsPerBar: metronomeBeatsPerBar,
       });
     } else {
       metronomeRef.current.stop();
     }
-  }, [emitMetronome, metronomeRunning, metronomeBpm, metronomeStartAt]);
+  }, [emitMetronome, metronomeRunning, metronomeBpm, metronomeStartAt, metronomeBeatsPerBar]);
 
   useEffect(() => {
     return () => {
@@ -292,6 +316,8 @@ export function Master({
       setMetronomeRunning(p.running);
       if (typeof p.bpm === 'number' && p.bpm > 0) setMetronomeBpm(p.bpm);
       if (typeof p.startAt === 'number' && p.startAt > 0) setMetronomeStartAt(p.startAt);
+      if (typeof p.beatsPerBar === 'number' && p.beatsPerBar >= 1)
+        setMetronomeBeatsPerBar(p.beatsPerBar);
     });
 
     // viewer applies incoming state so its UI mirrors the master
@@ -491,12 +517,22 @@ export function Master({
     if (!isMaster) return;
     if (metronomeRunning) {
       setMetronomeRunning(false);
-      broadcastMetronome({ running: false, bpm: metronomeBpm, startAt: metronomeStartAt });
+      broadcastMetronome({
+        running: false,
+        bpm: metronomeBpm,
+        startAt: metronomeStartAt,
+        beatsPerBar: metronomeBeatsPerBar,
+      });
     } else {
-      const startAt = Date.now() + 200; // small lead-in for network jitter
+      const startAt = Date.now() + 200;
       setMetronomeRunning(true);
       setMetronomeStartAt(startAt);
-      broadcastMetronome({ running: true, bpm: metronomeBpm, startAt });
+      broadcastMetronome({
+        running: true,
+        bpm: metronomeBpm,
+        startAt,
+        beatsPerBar: metronomeBeatsPerBar,
+      });
     }
   }
 
@@ -505,12 +541,21 @@ export function Master({
     const nextBpm = Math.max(30, Math.min(240, metronomeBpm + delta));
     setMetronomeBpm(nextBpm);
     if (metronomeRunning) {
-      // re-anchor so beats stay on-grid at the new tempo starting now
       const startAt = Date.now() + 100;
       setMetronomeStartAt(startAt);
-      broadcastMetronome({ running: true, bpm: nextBpm, startAt });
+      broadcastMetronome({
+        running: true,
+        bpm: nextBpm,
+        startAt,
+        beatsPerBar: metronomeBeatsPerBar,
+      });
     } else {
-      broadcastMetronome({ running: false, bpm: nextBpm, startAt: metronomeStartAt });
+      broadcastMetronome({
+        running: false,
+        bpm: nextBpm,
+        startAt: metronomeStartAt,
+        beatsPerBar: metronomeBeatsPerBar,
+      });
     }
   }
 

@@ -34,7 +34,7 @@ export default async function MasterPage({
   const { data: items } = await supabase
     .from('set_items')
     .select(
-      'id, position, transpose_semitones, capo, variation_id, song:songs(id, title, artist, original_key, current_version_id, default_tempo)'
+      'id, position, transpose_semitones, capo, variation_id, song:songs(id, title, artist, original_key, current_version_id, default_tempo, time_signature)'
     )
     .eq('set_id', setId)
     .order('position');
@@ -94,6 +94,7 @@ export default async function MasterPage({
     artist: i.song.artist as string | null,
     originalKey: i.song.original_key as string | null,
     songTempo: (i.song.default_tempo as number | null) ?? null,
+    songTimeSignature: (i.song.time_signature as string | null) ?? null,
     transpose: i.transpose_semitones as number,
     baseBody: versionsById.get(i.song.current_version_id ?? '') ?? '',
     body:

@@ -57,6 +57,7 @@ export default async function ProjectorPage({
     artist: i.song.artist as string | null,
     originalKey: i.song.original_key as string | null,
     songTempo: null,
+    songTimeSignature: null,
     transpose: i.transpose_semitones as number,
     baseBody: '',
     availableVariations: [],

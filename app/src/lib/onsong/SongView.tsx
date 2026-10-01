@@ -18,6 +18,7 @@ export function SongView({ song, semitones, fontScale = 1, showChords = true }: 
     );
   }
   if (song.meta.tempo) metaParts.push(`${song.meta.tempo} bpm`);
+  if (song.meta.time) metaParts.push(song.meta.time);
 
   return (
     <div style={{ fontSize: `${fontScale}em` }}>
