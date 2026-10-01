@@ -12,6 +12,7 @@ export type SongRow = {
   artist: string | null;
   original_key: string | null;
   default_tempo: number | null;
+  time_signature: string | null;
 };
 
 export function SongsExplorer({
@@ -279,6 +280,11 @@ export function SongsExplorer({
                     {s.default_tempo && (
                       <span className="text-xs text-zinc-400 font-mono">
                         {s.default_tempo} bpm
+                      </span>
+                    )}
+                    {s.time_signature && (
+                      <span className="text-xs text-zinc-400 font-mono">
+                        {s.time_signature}
                       </span>
                     )}
                     {s.original_key && (
