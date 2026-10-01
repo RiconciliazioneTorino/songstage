@@ -11,10 +11,11 @@ export default async function Dashboard() {
 
   const { data: me } = await supabase
     .from('users')
-    .select('display_name')
+    .select('display_name, is_curator')
     .eq('id', user.id)
     .maybeSingle();
   const displayName = (me?.display_name as string) ?? '';
+  const isCurator = !!(me?.is_curator as boolean | null);
 
   const { data: memberships } = await supabase
     .from('church_members')
@@ -25,6 +26,8 @@ export default async function Dashboard() {
     ...m.church,
     role: m.role as 'admin' | 'director' | 'musico' | 'lector',
   }));
+  const isChurchAdmin = churches.some((c) => c.role === 'admin');
+  const showLibrary = isCurator || isChurchAdmin;
 
   return (
     <main className="min-h-screen p-8 max-w-3xl mx-auto">
@@ -78,17 +81,19 @@ export default async function Dashboard() {
         </div>
       )}
 
-      <div className="mt-10 pt-6 border-t border-border">
-        <Link
-          href="/library"
-          className="block rounded-lg border border-border bg-panel p-4 hover:border-accent transition"
-        >
-          <div className="font-medium">📚 Libreria canonica</div>
-          <div className="text-xs text-zinc-500 mt-0.5">
-            Base condivisa di canzoni curate, adottabili da ogni chiesa
-          </div>
-        </Link>
-      </div>
+      {showLibrary && (
+        <div className="mt-10 pt-6 border-t border-border">
+          <Link
+            href="/library"
+            className="block rounded-lg border border-border bg-panel p-4 hover:border-accent transition"
+          >
+            <div className="font-medium">📚 Libreria canonica</div>
+            <div className="text-xs text-zinc-500 mt-0.5">
+              Base condivisa di canzoni curate, adottabili da ogni chiesa
+            </div>
+          </Link>
+        </div>
+      )}
     </main>
   );
 }
