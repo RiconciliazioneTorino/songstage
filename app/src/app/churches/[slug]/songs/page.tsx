@@ -24,6 +24,7 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
     .maybeSingle();
   const canCreate =
     !!myMembership && (myMembership.role === 'admin' || myMembership.role === 'director');
+  const isAdmin = myMembership?.role === 'admin';
 
   const { data: songs } = await supabase
     .from('songs')
@@ -46,6 +47,15 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
             >
               Importa OnSong
             </Link>
+            {isAdmin && (
+              <Link
+                href={`/churches/${church.slug}/songs/import-pdf`}
+                className="px-3 py-1.5 rounded-md border border-border hover:border-accent text-sm"
+                title="Importa una canzone da un PDF (solo admin, beta)"
+              >
+                Importa PDF
+              </Link>
+            )}
             <Link
               href={`/churches/${church.slug}/songs/new`}
               className="px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm"

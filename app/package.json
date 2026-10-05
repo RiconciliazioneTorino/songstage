@@ -17,6 +17,7 @@
     "html2pdf.js": "^0.10.3",
     "iconv-lite": "^0.7.2",
     "next": "^15.0.3",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
