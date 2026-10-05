@@ -41,14 +41,14 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
   const isAdmin = myMembership?.role === 'admin';
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <Link href={`/churches/${church.slug}`} className="text-sm text-zinc-400 hover:text-white">
         ← {church.name}
       </Link>
-      <header className="mt-4 mb-6 flex items-center justify-between">
+      <header className="mt-4 mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Canzoni</h1>
         {canCreate && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               href={`/churches/${church.slug}/songs/import`}
               className="px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"

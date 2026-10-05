@@ -17,7 +17,7 @@ export default function NewChurchPage() {
   }
 
   return (
-    <main className="min-h-screen p-8 max-w-md mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-md mx-auto">
       <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white">← Indietro</Link>
       <h1 className="text-3xl font-bold mt-4 mb-6">Nuova chiesa</h1>
       <form action={action} className="space-y-4">

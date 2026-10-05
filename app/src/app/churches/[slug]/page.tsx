@@ -50,7 +50,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
     : { data: [] as any[] };
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white">← Chiese</Link>
       <header className="mt-4 mb-8">
         <h1 className="text-3xl font-bold">{church.name}</h1>

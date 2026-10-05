@@ -30,7 +30,7 @@ export default async function Dashboard() {
   const showLibrary = isCurator || isChurchAdmin;
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <header className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Chiese</h1>

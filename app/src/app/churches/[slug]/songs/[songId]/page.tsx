@@ -167,8 +167,8 @@ export default async function SongPage({
 
   return (
     <main className="min-h-screen">
-      <div className="max-w-3xl mx-auto p-8">
-        <div className="flex items-center justify-between">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href={`/churches/${slug}/songs`}
             className="text-sm text-zinc-400 hover:text-white"

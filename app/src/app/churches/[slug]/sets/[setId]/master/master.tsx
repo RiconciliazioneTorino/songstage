@@ -703,7 +703,7 @@ export function Master({
 
   if (!slide) {
     return (
-      <main className="min-h-screen p-8 max-w-2xl mx-auto">
+      <main className="min-h-screen px-4 py-6 sm:p-8 max-w-2xl mx-auto">
         <p className="text-zinc-400">Questo set non ha canzoni.</p>
         <Link href={`/churches/${slug}/sets/${setId}`} className="text-accent">
           ← Torna al set

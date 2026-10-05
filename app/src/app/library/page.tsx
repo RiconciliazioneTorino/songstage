@@ -21,7 +21,7 @@ export default async function LibraryPage() {
     .order('title');
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white">
         ← Chiese
       </Link>

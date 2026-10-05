@@ -74,11 +74,11 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
   });
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <Link href={`/churches/${church.slug}`} className="text-sm text-zinc-400 hover:text-white">
         ← {church.name}
       </Link>
-      <header className="mt-4 mb-6 flex items-center justify-between">
+      <header className="mt-4 mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Set</h1>
         <Link
           href={`/churches/${church.slug}/sets/new`}

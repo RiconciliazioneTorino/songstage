@@ -6,7 +6,7 @@ export function ListSkeleton({
   rows?: number;
 }) {
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto animate-pulse">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto animate-pulse">
       <div className="h-4 w-24 bg-zinc-800 rounded" />
       <header className="mt-4 mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-zinc-100">{title}</h1>

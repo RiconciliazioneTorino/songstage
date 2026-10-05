@@ -80,7 +80,7 @@ export default async function SetDetailPage({
     .order('name');
 
   return (
-    <main className="min-h-screen p-8 max-w-3xl mx-auto">
+    <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <Link href={`/churches/${church.slug}/sets`} className="text-sm text-zinc-400 hover:text-white">
         ← Set
       </Link>

@@ -1,7 +1,7 @@
 export default function Loading() {
   return (
     <main className="min-h-screen">
-      <div className="max-w-3xl mx-auto p-8 animate-pulse">
+      <div className="max-w-3xl mx-auto px-4 py-6 sm:p-8 animate-pulse">
         <div className="flex items-center justify-between">
           <div className="h-4 w-20 bg-zinc-800 rounded" />
           <div className="flex gap-2">
