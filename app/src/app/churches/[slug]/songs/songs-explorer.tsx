@@ -206,9 +206,9 @@ export function SongsExplorer({
           <select
             value={artist}
             onChange={(e) => setArtist(e.target.value)}
-            className="flex-1 min-w-[10rem] px-3 py-2 rounded-md bg-bg border border-border text-sm"
+            className="flex-1 min-w-0 px-3 py-2 rounded-md bg-bg border border-border text-sm"
           >
-            <option value="">Tutti gli artisti</option>
+            <option value="">Artista</option>
             {artists.map((a) => (
               <option key={a} value={a}>
                 {a}
@@ -218,7 +218,7 @@ export function SongsExplorer({
           <select
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            className="w-28 px-3 py-2 rounded-md bg-bg border border-border text-sm"
+            className="flex-1 min-w-0 px-3 py-2 rounded-md bg-bg border border-border text-sm"
           >
             <option value="">Tonalità</option>
             {keys.map((k) => (
@@ -230,7 +230,7 @@ export function SongsExplorer({
           <select
             value={tempoRange}
             onChange={(e) => setTempoRange(e.target.value)}
-            className="flex-1 min-w-[8rem] px-3 py-2 rounded-md bg-bg border border-border text-sm"
+            className="flex-1 min-w-0 px-3 py-2 rounded-md bg-bg border border-border text-sm"
           >
             <option value="">Tempo</option>
             {TEMPO_RANGES.map((r) => (
