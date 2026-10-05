@@ -32,11 +32,11 @@ const TEMPO_RANGES: {
   min: number;
   max: number;
 }[] = [
-  { id: 'largo', label: 'Largo (40–60)', min: 40, max: 60 },
+  { id: 'largo', label: 'Largo (40–76)', min: 40, max: 76 },
   { id: 'andante', label: 'Andante (76–108)', min: 76, max: 108 },
   { id: 'moderato', label: 'Moderato (108–120)', min: 108, max: 120 },
-  { id: 'allegro', label: 'Allegro (120–156)', min: 120, max: 156 },
-  { id: 'presto', label: 'Presto (168–200)', min: 168, max: 200 },
+  { id: 'allegro', label: 'Allegro (120–168)', min: 120, max: 168 },
+  { id: 'presto', label: 'Presto (168–240)', min: 168, max: 240 },
 ];
 
 export function SongsExplorer({
