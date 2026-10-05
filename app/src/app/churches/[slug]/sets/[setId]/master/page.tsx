@@ -25,6 +25,16 @@ export default async function MasterPage({
   ]);
   const canBeMaster = !!isOwnerOrLead || !!canWriteShared;
 
+  const { data: liveState } = await supabase
+    .from('sets')
+    .select('active_master_user_id, active_master_heartbeat_at')
+    .eq('id', setId)
+    .maybeSingle();
+  const liveMasterUserId = (liveState?.active_master_user_id as string | null) ?? null;
+  const liveMasterHeartbeat = liveState?.active_master_heartbeat_at
+    ? new Date(liveState.active_master_heartbeat_at).getTime()
+    : 0;
+
   const { data: availableSongs } = await supabase
     .from('songs')
     .select('id, title, artist, original_key')
@@ -120,6 +130,8 @@ export default async function MasterPage({
       currentUserId={user.id}
       currentUserEmail={user.email ?? ''}
       canBeMaster={canBeMaster}
+      liveMasterUserId={liveMasterUserId}
+      liveMasterHeartbeat={liveMasterHeartbeat}
     />
   );
 }

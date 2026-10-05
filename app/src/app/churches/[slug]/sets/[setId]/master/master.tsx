@@ -72,6 +72,8 @@ export function Master({
   currentUserId,
   currentUserEmail,
   canBeMaster,
+  liveMasterUserId,
+  liveMasterHeartbeat,
 }: {
   setId: string;
   setName: string;
@@ -81,6 +83,8 @@ export function Master({
   currentUserId: string;
   currentUserEmail: string;
   canBeMaster: boolean;
+  liveMasterUserId: string | null;
+  liveMasterHeartbeat: number;
 }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
@@ -109,6 +113,15 @@ export function Master({
   const [emitMetronome, setEmitMetronome] = useState(false);
   const roleRef = useRef(role);
   const metronomeRef = useRef<Metronome | null>(null);
+  const promoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // DB told us there's a recent master other than me — treat as authoritative
+  // for the initial window so we don't steal control from someone whose
+  // Realtime presence is briefly flickering (laptop sleep, flaky wifi…).
+  const dbHasOtherLiveMasterRef = useRef(
+    liveMasterUserId !== null &&
+      liveMasterUserId !== currentUserId &&
+      Date.now() - liveMasterHeartbeat < 45_000
+  );
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const scrollFractionRef = useRef(0);
@@ -358,7 +371,11 @@ export function Master({
       if (toUserId !== currentUserId) return;
       if (roleRef.current !== 'viewer') return;
       setPendingRequest(null);
-      channel.track({ role: 'master', email: currentUserEmail });
+      channel.track({
+        role: 'master',
+        email: currentUserEmail,
+        joinedAt: Date.now(),
+      });
       setRole('master');
     });
 
@@ -386,25 +403,48 @@ export function Master({
       }
       if (masterEntry && masterEntry.userId !== currentUserId) {
         setActiveMasterEmail(masterEntry.email);
+        dbHasOtherLiveMasterRef.current = false;
+        if (promoteTimerRef.current) {
+          clearTimeout(promoteTimerRef.current);
+          promoteTimerRef.current = null;
+        }
         if (roleRef.current !== 'viewer') setRole('viewer');
       } else if (masterEntry && masterEntry.userId === currentUserId) {
         setActiveMasterEmail(currentUserEmail);
         if (roleRef.current !== 'master') setRole('master');
       } else {
         setActiveMasterEmail(null);
-        // no master present — auto-promote only if allowed to write
-        if (roleRef.current === 'connecting') {
-          if (canBeMaster) {
-            channel.track({
-              role: 'master',
-              email: currentUserEmail,
-              joinedAt: Date.now(),
-            });
-            setRole('master');
-          } else {
-            setRole('viewer');
-          }
+        // No master visible in presence. Don't rush — the previous master may
+        // just be reconnecting. Only promote after a grace period, and never
+        // when the DB heartbeat says someone else was master in the last 45s.
+        if (roleRef.current !== 'connecting') return;
+        if (!canBeMaster) {
+          setRole('viewer');
+          return;
         }
+        if (dbHasOtherLiveMasterRef.current) {
+          setRole('viewer');
+          return;
+        }
+        if (promoteTimerRef.current) return;
+        promoteTimerRef.current = setTimeout(() => {
+          promoteTimerRef.current = null;
+          if (roleRef.current !== 'connecting') return;
+          const stillNoMaster = Object.values(
+            channel.presenceState() as Record<string, { role?: string }[]>
+          ).every((metas) => !metas.some((m) => m.role === 'master'));
+          if (!stillNoMaster) return;
+          if (dbHasOtherLiveMasterRef.current) {
+            setRole('viewer');
+            return;
+          }
+          channel.track({
+            role: 'master',
+            email: currentUserEmail,
+            joinedAt: Date.now(),
+          });
+          setRole('master');
+        }, 2500);
       }
     });
 
@@ -415,11 +455,18 @@ export function Master({
           email: currentUserEmail,
           joinedAt: Date.now(),
         });
+        // Ask the current master (if any) to send us current state so a new
+        // viewer catches up instead of showing song 1 by default.
+        channel.send({ type: 'broadcast', event: 'request_state', payload: {} });
       }
     });
 
     channelRef.current = channel;
     return () => {
+      if (promoteTimerRef.current) {
+        clearTimeout(promoteTimerRef.current);
+        promoteTimerRef.current = null;
+      }
       channel.untrack();
       channel.unsubscribe();
     };
@@ -427,7 +474,7 @@ export function Master({
   }, [setId]);
 
   useEffect(() => {
-    if (role !== 'master') return;
+    if (roleRef.current !== 'master') return;
     const ch = channelRef.current;
     if (!ch) return;
     scrollFractionRef.current = 0;
@@ -437,7 +484,7 @@ export function Master({
       event: 'state',
       payload: { index, transposeOverride, fontScale, showChords, scrollFraction: 0 },
     });
-  }, [index, transposeOverride, fontScale, showChords, role]);
+  }, [index, transposeOverride, fontScale, showChords]);
 
   function onContentScroll() {
     if (roleRef.current !== 'master') return;
