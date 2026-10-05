@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { bulkDeleteSongs } from '@/lib/songs/actions';
@@ -46,6 +46,22 @@ export function SongsExplorer({
   const [setModalOpen, setSetModalOpen] = useState(false);
   const [newSetName, setNewSetName] = useState('');
   const [banner, setBanner] = useState<{ kind: 'error' | 'info'; text: string } | null>(null);
+  const [showCanonical, setShowCanonical] = useState(true);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(`songs:${slug}:showCanonical`);
+      if (v === '0') setShowCanonical(false);
+    } catch {}
+  }, [slug]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        `songs:${slug}:showCanonical`,
+        showCanonical ? '1' : '0'
+      );
+    } catch {}
+  }, [slug, showCanonical]);
 
   const artists = useMemo(() => {
     const s = new Set<string>();
@@ -75,6 +91,7 @@ export function SongsExplorer({
     const min = tempoMin ? parseInt(tempoMin, 10) : null;
     const max = tempoMax ? parseInt(tempoMax, 10) : null;
     return songs.filter((s) => {
+      if (!showCanonical && s.church_id === null) return false;
       if (q && !s.title.toLowerCase().includes(q) && !(s.artist ?? '').toLowerCase().includes(q))
         return false;
       if (artist && s.artist !== artist) return false;
@@ -83,7 +100,7 @@ export function SongsExplorer({
       if (max !== null && (s.default_tempo == null || s.default_tempo > max)) return false;
       return true;
     });
-  }, [songs, query, artist, key, tempoMin, tempoMax]);
+  }, [songs, query, artist, key, tempoMin, tempoMax, showCanonical]);
 
   const anyFilter = query || artist || key || tempoMin || tempoMax;
   const allFilteredIds = useMemo(() => filtered.map((s) => s.id), [filtered]);
@@ -229,20 +246,30 @@ export function SongsExplorer({
             </button>
           )}
         </div>
-        <div className="text-xs text-zinc-500 flex items-center justify-between">
+        <div className="text-xs text-zinc-500 flex items-center justify-between flex-wrap gap-2">
           <span>
             {filtered.length} di {songs.length} canzoni
           </span>
-          {filtered.length > 0 && (
-            <label className="flex items-center gap-1 cursor-pointer">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-1 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={allFilteredSelected}
-                onChange={toggleAllFiltered}
+                checked={showCanonical}
+                onChange={(e) => setShowCanonical(e.target.checked)}
               />
-              Seleziona tutte le filtrate
+              Mostra canoniche
             </label>
-          )}
+            {filtered.length > 0 && (
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleAllFiltered}
+                />
+                Seleziona tutte le filtrate
+              </label>
+            )}
+          </div>
         </div>
       </div>
 
