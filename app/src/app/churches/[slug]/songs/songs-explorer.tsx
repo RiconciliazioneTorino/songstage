@@ -13,6 +13,11 @@ export type SongRow = {
   original_key: string | null;
   default_tempo: number | null;
   time_signature: string | null;
+  current_version:
+    | { version_number: number }
+    | { version_number: number }[]
+    | null;
+  audio_attachments: { kind: string }[] | null;
 };
 
 export function SongsExplorer({
@@ -250,6 +255,12 @@ export function SongsExplorer({
         <div className="space-y-2 pb-24">
           {filtered.map((s) => {
             const checked = selected.has(s.id);
+            const hasVideo =
+              s.audio_attachments?.some((a) => a.kind === 'youtube') ?? false;
+            const cv = Array.isArray(s.current_version)
+              ? s.current_version[0]
+              : s.current_version;
+            const versionNumber = cv?.version_number;
             return (
               <div
                 key={s.id}
@@ -277,6 +288,31 @@ export function SongsExplorer({
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {hasVideo && (
+                      <span
+                        title="Ha un video YouTube"
+                        aria-label="Ha un video YouTube"
+                        className="text-red-500 flex-shrink-0"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="18"
+                          height="18"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.6 3.6 12 3.6 12 3.6s-7.6 0-9.4.5A3 3 0 0 0 .5 6.2 31.2 31.2 0 0 0 0 12a31.2 31.2 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.8.5 9.4.5 9.4.5s7.6 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.2 31.2 0 0 0 24 12a31.2 31.2 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" />
+                        </svg>
+                      </span>
+                    )}
+                    {versionNumber != null && (
+                      <span
+                        title={`Versione corrente: v${versionNumber}`}
+                        className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono"
+                      >
+                        v{versionNumber}
+                      </span>
+                    )}
                     {s.default_tempo && (
                       <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono">
                         {s.default_tempo} bpm
