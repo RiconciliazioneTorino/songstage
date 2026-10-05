@@ -24,7 +24,11 @@ export default async function SongPage({
     .eq('id', songId)
     .maybeSingle();
   if (!song) notFound();
-  const parent = (song as any).parent as { id: string; title: string } | null;
+  const rawParent = (song as any).parent as
+    | { id: string; title: string }
+    | { id: string; title: string }[]
+    | null;
+  const parent = Array.isArray(rawParent) ? (rawParent[0] ?? null) : rawParent;
 
   const { data: myMembership } = await supabase
     .from('church_members')
