@@ -103,8 +103,8 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
               href={`/churches/${church.slug}/sets/${s.id}`}
               className="block rounded-md border border-border bg-panel p-3 hover:border-accent transition"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2 gap-x-3">
+                <div className="min-w-0 flex-1">
                   <div className="font-medium flex items-center gap-2 flex-wrap">
                     <span className="truncate">{s.name}</span>
                     {s.isLive && (
@@ -117,15 +117,34 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500 flex gap-2 flex-wrap">
-                    {s.event_type && <span>{s.event_type}</span>}
-                    <span>· {s.itemsCount} {s.itemsCount === 1 ? 'canzone' : 'canzoni'}</span>
-                    {s.creatorLabel && <span>· creato da {s.creatorLabel}</span>}
-                  </div>
+                  {s.event_type && (
+                    <div className="text-xs text-zinc-500 mt-0.5">{s.event_type}</div>
+                  )}
                 </div>
-                {s.event_date && (
-                  <span className="text-xs text-zinc-400 flex-shrink-0">{s.event_date}</span>
-                )}
+                <div className="flex items-center flex-wrap gap-1.5 sm:flex-shrink-0 sm:justify-end">
+                  {s.event_date && (
+                    <span
+                      title="Data evento"
+                      className="text-xs text-sky-300 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/40 font-mono"
+                    >
+                      {s.event_date}
+                    </span>
+                  )}
+                  <span
+                    title={`${s.itemsCount} ${s.itemsCount === 1 ? 'canzone' : 'canzoni'}`}
+                    className="text-xs text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 font-mono"
+                  >
+                    {s.itemsCount} {s.itemsCount === 1 ? 'canzone' : 'canzoni'}
+                  </span>
+                  {s.creatorLabel && (
+                    <span
+                      title="Creato da"
+                      className="text-xs text-violet-300 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/40"
+                    >
+                      {s.creatorLabel}
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
