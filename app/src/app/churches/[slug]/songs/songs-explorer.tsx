@@ -13,12 +13,18 @@ export type SongRow = {
   original_key: string | null;
   default_tempo: number | null;
   time_signature: string | null;
+  church_id: string | null;
   current_version:
     | { version_number: number }
     | { version_number: number }[]
     | null;
   audio_attachments: { kind: string }[] | null;
 };
+
+function normalizeMatchKey(title: string, artist: string | null): string {
+  const s = `${title}|${artist ?? ''}`.toLowerCase();
+  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+}
 
 export function SongsExplorer({
   slug,
@@ -51,6 +57,17 @@ export function SongsExplorer({
     const s = new Set<string>();
     for (const song of songs) if (song.original_key) s.add(song.original_key);
     return Array.from(s).sort();
+  }, [songs]);
+
+  const scopeByKey = useMemo(() => {
+    const canonical = new Set<string>();
+    const church = new Set<string>();
+    for (const s of songs) {
+      const k = normalizeMatchKey(s.title, s.artist);
+      if (s.church_id === null) canonical.add(k);
+      else church.add(k);
+    }
+    return { canonical, church };
   }, [songs]);
 
   const filtered = useMemo(() => {
@@ -261,6 +278,23 @@ export function SongsExplorer({
               ? s.current_version[0]
               : s.current_version;
             const versionNumber = cv?.version_number;
+            const matchKey = normalizeMatchKey(s.title, s.artist);
+            const isCanonical = s.church_id === null;
+            const hasOtherScope = isCanonical
+              ? scopeByKey.church.has(matchKey)
+              : scopeByKey.canonical.has(matchKey);
+            const scopeLabel = isCanonical
+              ? hasOtherScope
+                ? 'Canonica (sostituita)'
+                : 'Canonica'
+              : hasOtherScope
+                ? 'Chiesa (override)'
+                : 'Chiesa';
+            const scopeClass = isCanonical
+              ? 'text-zinc-400 bg-bg border-border'
+              : hasOtherScope
+                ? 'text-amber-300 bg-amber-500/10 border-amber-500/40'
+                : 'text-accent bg-accent/10 border-accent/40';
             return (
               <div
                 key={s.id}
@@ -282,7 +316,14 @@ export function SongsExplorer({
                   className="flex-1 min-w-0 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <div className="font-medium truncate">{s.title}</div>
+                    <div className="font-medium truncate flex items-center gap-2">
+                      <span className="truncate">{s.title}</span>
+                      <span
+                        className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border font-normal flex-shrink-0 ${scopeClass}`}
+                      >
+                        {scopeLabel}
+                      </span>
+                    </div>
                     {s.artist && (
                       <div className="text-xs text-zinc-500 truncate">{s.artist}</div>
                     )}
