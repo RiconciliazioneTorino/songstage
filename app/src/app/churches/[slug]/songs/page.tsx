@@ -29,7 +29,7 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
   const { data: songs } = await supabase
     .from('songs')
     .select('id, title, artist, original_key, default_tempo, time_signature')
-    .eq('church_id', church.id)
+    .or(`church_id.eq.${church.id},church_id.is.null`)
     .order('title');
 
   return (
