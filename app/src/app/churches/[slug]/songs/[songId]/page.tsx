@@ -7,6 +7,7 @@ import { DeleteSongButton } from './delete-button';
 import { AudioPanel } from './audio-panel';
 import { VariationsActions } from './variations-actions';
 import { PromoteCanonicalButton } from './promote-canonical-button';
+import { AdoptCanonicalButton } from './adopt-canonical-button';
 
 export default async function SongPage({
   params,
@@ -30,13 +31,26 @@ export default async function SongPage({
     | null;
   const parent = Array.isArray(rawParent) ? (rawParent[0] ?? null) : rawParent;
 
-  const { data: myMembership } = await supabase
-    .from('church_members')
-    .select('role')
-    .eq('church_id', song.church_id!)
-    .eq('user_id', user.id)
+  const { data: contextChurch } = await supabase
+    .from('churches')
+    .select('id')
+    .eq('slug', slug)
     .maybeSingle();
-  const canEdit = myMembership?.role === 'admin' || myMembership?.role === 'director';
+  const contextChurchId =
+    song.church_id ?? contextChurch?.id ?? null;
+
+  const { data: myMembership } = contextChurchId
+    ? await supabase
+        .from('church_members')
+        .select('role')
+        .eq('church_id', contextChurchId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+    : { data: null };
+  const isSongChurchScoped = song.church_id !== null;
+  const canEdit =
+    isSongChurchScoped &&
+    (myMembership?.role === 'admin' || myMembership?.role === 'director');
 
   const { data: me } = await supabase
     .from('users')
@@ -44,7 +58,24 @@ export default async function SongPage({
     .eq('id', user.id)
     .maybeSingle();
   const isCurator = !!(me?.is_curator as boolean | null);
-  const canPromote = isCurator && song.church_id !== null && !song.parent_song_id;
+  const canPromote = isCurator && isSongChurchScoped && !song.parent_song_id;
+
+  // For canonical songs viewed in a church context: offer adoption if the
+  // viewer manages this church and no copy has been adopted here yet.
+  let canAdopt = false;
+  let adoptedCopyId: string | null = null;
+  if (!isSongChurchScoped && contextChurch?.id) {
+    const canManageChurch =
+      myMembership?.role === 'admin' || myMembership?.role === 'director';
+    const { data: existing } = await supabase
+      .from('songs')
+      .select('id')
+      .eq('church_id', contextChurch.id)
+      .eq('parent_song_id', song.id)
+      .maybeSingle();
+    adoptedCopyId = existing?.id ?? null;
+    canAdopt = canManageChurch && !adoptedCopyId;
+  }
 
   let baseBody = '';
   if (song.current_version_id) {
@@ -147,6 +178,21 @@ export default async function SongPage({
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {canPromote && (
               <PromoteCanonicalButton songId={songId} title={song.title} />
+            )}
+            {canAdopt && (
+              <AdoptCanonicalButton
+                canonicalSongId={songId}
+                churchSlug={slug}
+                title={song.title}
+              />
+            )}
+            {adoptedCopyId && (
+              <Link
+                href={`/churches/${slug}/songs/${adoptedCopyId}`}
+                className="text-sm px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent/10"
+              >
+                Apri versione chiesa →
+              </Link>
             )}
             {canEdit && (
               <>
