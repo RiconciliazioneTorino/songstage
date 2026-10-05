@@ -346,7 +346,7 @@ export function SongsExplorer({
                     <div className="font-medium truncate flex items-center gap-2">
                       <span className="truncate">{s.title}</span>
                       <span
-                        className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border font-normal flex-shrink-0 ${scopeClass}`}
+                        className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-normal flex-shrink-0 ${scopeClass}`}
                       >
                         {scopeLabel}
                       </span>
@@ -376,7 +376,7 @@ export function SongsExplorer({
                     {versionNumber != null && (
                       <span
                         title={`Versione corrente: v${versionNumber}`}
-                        className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-zinc-500/10 border border-zinc-500/40 font-mono"
+                        className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-zinc-500/10 border border-zinc-500/40 font-mono"
                       >
                         v{versionNumber}
                       </span>
@@ -384,7 +384,7 @@ export function SongsExplorer({
                     {s.default_tempo && (
                       <span
                         title="BPM"
-                        className="text-xs text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/40 font-mono"
+                        className="text-xs text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 font-mono"
                       >
                         {s.default_tempo} bpm
                       </span>
@@ -392,7 +392,7 @@ export function SongsExplorer({
                     {s.time_signature && (
                       <span
                         title="Metro"
-                        className="text-xs text-violet-300 px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/40 font-mono"
+                        className="text-xs text-violet-300 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/40 font-mono"
                       >
                         {s.time_signature}
                       </span>
@@ -400,7 +400,7 @@ export function SongsExplorer({
                     {s.original_key && (
                       <span
                         title="Tonalità"
-                        className="text-xs text-sky-300 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/40"
+                        className="text-xs text-sky-300 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/40"
                       >
                         {s.original_key}
                       </span>
