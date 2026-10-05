@@ -26,6 +26,19 @@ function normalizeMatchKey(title: string, artist: string | null): string {
   return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
 }
 
+const TEMPO_RANGES: {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+}[] = [
+  { id: 'largo', label: 'Largo (40–60)', min: 40, max: 60 },
+  { id: 'andante', label: 'Andante (76–108)', min: 76, max: 108 },
+  { id: 'moderato', label: 'Moderato (108–120)', min: 108, max: 120 },
+  { id: 'allegro', label: 'Allegro (120–156)', min: 120, max: 156 },
+  { id: 'presto', label: 'Presto (168–200)', min: 168, max: 200 },
+];
+
 export function SongsExplorer({
   slug,
   songs,
@@ -39,8 +52,7 @@ export function SongsExplorer({
   const [query, setQuery] = useState('');
   const [artist, setArtist] = useState('');
   const [key, setKey] = useState('');
-  const [tempoMin, setTempoMin] = useState('');
-  const [tempoMax, setTempoMax] = useState('');
+  const [tempoRange, setTempoRange] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, startTransition] = useTransition();
   const [setModalOpen, setSetModalOpen] = useState(false);
@@ -88,21 +100,22 @@ export function SongsExplorer({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const min = tempoMin ? parseInt(tempoMin, 10) : null;
-    const max = tempoMax ? parseInt(tempoMax, 10) : null;
+    const range = TEMPO_RANGES.find((r) => r.id === tempoRange) ?? null;
     return songs.filter((s) => {
       if (!showCanonical && s.church_id === null) return false;
       if (q && !s.title.toLowerCase().includes(q) && !(s.artist ?? '').toLowerCase().includes(q))
         return false;
       if (artist && s.artist !== artist) return false;
       if (key && s.original_key !== key) return false;
-      if (min !== null && (s.default_tempo == null || s.default_tempo < min)) return false;
-      if (max !== null && (s.default_tempo == null || s.default_tempo > max)) return false;
+      if (range) {
+        if (s.default_tempo == null) return false;
+        if (s.default_tempo < range.min || s.default_tempo > range.max) return false;
+      }
       return true;
     });
-  }, [songs, query, artist, key, tempoMin, tempoMax, showCanonical]);
+  }, [songs, query, artist, key, tempoRange, showCanonical]);
 
-  const anyFilter = query || artist || key || tempoMin || tempoMax;
+  const anyFilter = query || artist || key || tempoRange;
   const allFilteredIds = useMemo(() => filtered.map((s) => s.id), [filtered]);
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((s) => selected.has(s.id));
@@ -214,31 +227,25 @@ export function SongsExplorer({
               </option>
             ))}
           </select>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              placeholder="BPM min"
-              value={tempoMin}
-              onChange={(e) => setTempoMin(e.target.value)}
-              className="w-24 px-2 py-2 rounded-md bg-bg border border-border text-sm"
-            />
-            <span className="text-zinc-500 text-sm">–</span>
-            <input
-              type="number"
-              placeholder="BPM max"
-              value={tempoMax}
-              onChange={(e) => setTempoMax(e.target.value)}
-              className="w-24 px-2 py-2 rounded-md bg-bg border border-border text-sm"
-            />
-          </div>
+          <select
+            value={tempoRange}
+            onChange={(e) => setTempoRange(e.target.value)}
+            className="flex-1 min-w-[8rem] px-3 py-2 rounded-md bg-bg border border-border text-sm"
+          >
+            <option value="">Tempo</option>
+            {TEMPO_RANGES.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
           {anyFilter && (
             <button
               onClick={() => {
                 setQuery('');
                 setArtist('');
                 setKey('');
-                setTempoMin('');
-                setTempoMax('');
+                setTempoRange('');
               }}
               className="px-3 py-2 rounded-full border border-border text-sm text-zinc-400 hover:border-accent hover:text-white"
             >
