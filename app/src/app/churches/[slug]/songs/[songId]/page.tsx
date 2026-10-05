@@ -40,7 +40,7 @@ export default async function SongPage({
     .eq('id', user.id)
     .maybeSingle();
   const isCurator = !!(me?.is_curator as boolean | null);
-  const canPromote = isCurator && !song.parent_song_id;
+  const canPromote = isCurator && song.church_id !== null && !song.parent_song_id;
 
   let baseBody = '';
   if (song.current_version_id) {
