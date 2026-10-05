@@ -51,24 +51,32 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
           <div className="flex flex-wrap gap-2">
             <Link
               href={`/churches/${church.slug}/songs/import`}
-              className="px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"
+              className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"
+              title="Importa OnSong"
+              aria-label="Importa OnSong"
             >
-              Importa OnSong
+              <span aria-hidden>📥</span>
+              <span className="hidden sm:inline">Importa OnSong</span>
             </Link>
             {isAdmin && (
               <Link
                 href={`/churches/${church.slug}/songs/import-pdf`}
-                className="px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"
+                className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"
                 title="Importa una canzone da un PDF (solo admin, beta)"
+                aria-label="Importa PDF"
               >
-                Importa PDF
+                <span aria-hidden>📄</span>
+                <span className="hidden sm:inline">Importa PDF</span>
               </Link>
             )}
             <Link
               href={`/churches/${church.slug}/songs/new`}
-              className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
+              className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
+              title="Nuova canzone"
+              aria-label="Nuova canzone"
             >
-              + Nuova
+              <span aria-hidden>+</span>
+              <span className="hidden sm:inline">Nuova</span>
             </Link>
           </div>
         )}

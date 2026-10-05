@@ -82,9 +82,12 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
         <h1 className="text-3xl font-bold">Set</h1>
         <Link
           href={`/churches/${church.slug}/sets/new`}
-          className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
+          className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
+          title="Nuovo set"
+          aria-label="Nuovo set"
         >
-          + Nuovo
+          <span aria-hidden>+</span>
+          <span className="hidden sm:inline">Nuovo</span>
         </Link>
       </header>
 

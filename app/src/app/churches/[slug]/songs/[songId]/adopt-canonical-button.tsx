@@ -25,10 +25,18 @@ export function AdoptCanonicalButton({
           if (r?.error) alert(r.error);
         });
       }}
-      className="text-sm px-3 py-1 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
-      title="Crea una copia modificabile di questa canzone per la chiesa"
+      className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] text-sm px-3 py-1 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+      title="Adotta per la chiesa"
+      aria-label="Adotta per la chiesa"
     >
-      {pending ? '…' : '⤓ Adotta per la chiesa'}
+      {pending ? (
+        '…'
+      ) : (
+        <>
+          <span aria-hidden>⤓</span>
+          <span className="hidden sm:inline">Adotta per la chiesa</span>
+        </>
+      )}
     </button>
   );
 }

@@ -189,18 +189,24 @@ export default async function SongPage({
             {adoptedCopyId && (
               <Link
                 href={`/churches/${slug}/songs/${adoptedCopyId}`}
-                className="text-sm px-3 py-1 rounded-full border border-accent text-accent hover:bg-accent/10"
+                className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] text-sm px-3 py-1 rounded-full border border-accent text-accent hover:bg-accent/10"
+                title="Apri versione chiesa"
+                aria-label="Apri versione chiesa"
               >
-                Apri versione chiesa →
+                <span aria-hidden>🏠</span>
+                <span className="hidden sm:inline">Apri versione chiesa →</span>
               </Link>
             )}
             {canEdit && (
               <>
                 <Link
                   href={`/churches/${slug}/songs/${songId}/edit`}
-                  className="text-sm px-3 py-1 rounded-full border border-border hover:border-accent"
+                  className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] text-sm px-3 py-1 rounded-full border border-border hover:border-accent"
+                  title="Modifica base"
+                  aria-label="Modifica base"
                 >
-                  Modifica base
+                  <span aria-hidden>✏️</span>
+                  <span className="hidden sm:inline">Modifica base</span>
                 </Link>
                 <DeleteSongButton slug={slug} songId={songId} title={song.title} />
               </>

@@ -20,9 +20,12 @@ export function DeleteSongButton({
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="text-sm px-3 py-1 rounded-full border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
+        className="inline-flex items-center justify-center gap-1.5 min-w-[2.25rem] text-sm px-3 py-1 rounded-full border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
+        title="Elimina"
+        aria-label="Elimina"
       >
-        Elimina
+        <span aria-hidden>🗑️</span>
+        <span className="hidden sm:inline">Elimina</span>
       </button>
     );
   }
