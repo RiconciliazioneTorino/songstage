@@ -13,6 +13,7 @@ import {
   updateSetItem,
 } from '@/lib/sets/actions';
 import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
+import { exportElementToPdf } from '@/lib/pdf/export';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
@@ -131,6 +132,8 @@ export function Master({
   );
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const printRef = useRef<HTMLDivElement | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const scrollFractionRef = useRef(0);
   const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -1013,11 +1016,23 @@ export function Master({
 
         <button
           type="button"
-          onClick={() => window.print()}
-          className="h-9 px-2 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
-          title="Esporta la scaletta in PDF (fondo bianco, acordi rossi, sezioni verdi)"
+          disabled={exportingPdf}
+          onClick={async () => {
+            if (!printRef.current) return;
+            setExportingPdf(true);
+            try {
+              await exportElementToPdf(
+                printRef.current,
+                `${setName.replace(/[^a-z0-9]+/gi, '-') || 'scaletta'}.pdf`
+              );
+            } finally {
+              setExportingPdf(false);
+            }
+          }}
+          className="h-9 px-2 rounded border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
+          title="Scarica la scaletta in PDF (fondo bianco, accordi rossi, sezioni verdi)"
         >
-          PDF
+          {exportingPdf ? '…' : 'PDF'}
         </button>
 
         <a
@@ -1371,7 +1386,7 @@ export function Master({
         </div>
       )}
 
-      <div className="print-only" aria-hidden>
+      <div ref={printRef} className="print-only" aria-hidden>
         <h1 style={{ color: '#000', fontSize: '1.5rem', marginBottom: '0.75rem' }}>
           {setName}
         </h1>

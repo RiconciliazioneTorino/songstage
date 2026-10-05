@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { updateSong } from '@/lib/songs/actions';
 import { transposeChord, transposeKey } from '@/lib/onsong/transpose';
 import { parseOnSong, SongView } from '@/lib/onsong';
+import { exportElementToPdf } from '@/lib/pdf/export';
 
 function transposeOnSongBody(body: string, semitones: number): string {
   if (semitones === 0) return body;
@@ -42,6 +43,8 @@ export function EditSongForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const printRef = useRef<HTMLDivElement | null>(null);
 
   const parsed = useMemo(() => parseOnSong(body), [body]);
   const currentKey = parsed.meta.key ?? '?';
@@ -113,11 +116,24 @@ export function EditSongForm({
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
-            className="h-9 px-3 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="Esporta in PDF (fondo bianco, acordi rossi, sezioni verdi)"
+            disabled={exportingPdf}
+            onClick={async () => {
+              if (!printRef.current) return;
+              setExportingPdf(true);
+              try {
+                const title = parsed.meta.title ?? 'canzone';
+                await exportElementToPdf(
+                  printRef.current,
+                  `${title.replace(/[^a-z0-9]+/gi, '-') || 'canzone'}.pdf`
+                );
+              } finally {
+                setExportingPdf(false);
+              }
+            }}
+            className="h-9 px-3 rounded border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
+            title="Scarica in PDF (fondo bianco, accordi rossi, sezioni verdi)"
           >
-            PDF
+            {exportingPdf ? '…' : 'PDF'}
           </button>
         </div>
         {keyShift !== 0 && (
@@ -169,7 +185,7 @@ export function EditSongForm({
         {error && <p className="text-sm text-red-400 self-center">{error}</p>}
       </div>
     </form>
-    <div className="print-only" aria-hidden>
+    <div ref={printRef} className="print-only" aria-hidden>
       <SongView song={parsed} semitones={0} fontScale={1} showChords />
     </div>
     </>
