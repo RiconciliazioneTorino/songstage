@@ -325,7 +325,7 @@ export function SongsExplorer({
             return (
               <div
                 key={s.id}
-                className={`flex items-center gap-3 rounded-md border p-3 transition ${
+                className={`flex items-start gap-3 rounded-md border p-3 transition ${
                   checked
                     ? 'border-accent bg-accent/5'
                     : 'border-border bg-panel hover:border-accent'
@@ -335,32 +335,30 @@ export function SongsExplorer({
                   type="checkbox"
                   checked={checked}
                   onChange={() => toggle(s.id)}
-                  className="flex-shrink-0"
+                  className="flex-shrink-0 mt-1"
                   aria-label={`Seleziona ${s.title}`}
                 />
                 <Link
                   href={`/churches/${slug}/songs/${s.id}`}
-                  className="flex-1 min-w-0 flex items-center justify-between gap-3"
+                  className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-y-2 gap-x-3"
                 >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate flex items-center gap-2">
-                      <span className="truncate">{s.title}</span>
-                      <span
-                        className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-normal flex-shrink-0 ${scopeClass}`}
-                      >
-                        {scopeLabel}
-                      </span>
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{s.title}</div>
                     {s.artist && (
                       <div className="text-xs text-zinc-500 truncate">{s.artist}</div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center flex-wrap gap-1.5 sm:flex-shrink-0 sm:justify-end">
+                    <span
+                      className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border font-normal flex-shrink-0 ${scopeClass}`}
+                    >
+                      {scopeLabel}
+                    </span>
                     {hasVideo && (
                       <span
                         title="Ha un video YouTube"
                         aria-label="Ha un video YouTube"
-                        className="text-red-500 flex-shrink-0"
+                        className="text-red-500 flex-shrink-0 inline-flex"
                       >
                         <svg
                           viewBox="0 0 24 24"
