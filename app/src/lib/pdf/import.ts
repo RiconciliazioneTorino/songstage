@@ -116,6 +116,43 @@ function buildFlow(items: Item[], charW: number): string[] {
   return lines;
 }
 
+const SECTION_RE = new RegExp(
+  '^(' +
+    [
+      'intro', 'outro', 'bridge', 'ponte', 'coda', 'tag', 'interlude',
+      'interludio', 'strumentale', 'instrumental', 'finale', 'ending',
+      'turnaround', 'break', 'refrain', 'verse', 'verso', 'strofa',
+      'chorus', 'coro', 'ritornello', 'pre-chorus', 'prechorus', 'pre-coro',
+      'precoro', 'pre-ponte', 'preponte',
+    ].join('|') +
+    ')(?:\\s*\\d+)?$',
+  'i'
+);
+const NUMBERED_SECTION_RE = new RegExp(
+  '^\\d+\\s+(' +
+    [
+      'verse', 'verso', 'strofa', 'chorus', 'coro', 'ritornello', 'bridge',
+      'ponte',
+    ].join('|') +
+    ')$',
+  'i'
+);
+
+/**
+ * Add a trailing ':' to lines that look like a section header but were
+ * typeset without one in the source PDF (e.g. "Intro", "1 Verse",
+ * "Pre-chorus"). Only applies when the whole trimmed line matches a known
+ * section pattern — regular lyrics are left alone.
+ */
+function sectionizeLines(lines: string[]): string[] {
+  return lines.map((line) => {
+    const t = line.trim();
+    if (!t || t.endsWith(':')) return line;
+    if (SECTION_RE.test(t) || NUMBERED_SECTION_RE.test(t)) return line + ':';
+    return line;
+  });
+}
+
 export async function extractTextFromPdf(file: File | Blob): Promise<string> {
   const pdfjs: any = await import('pdfjs-dist');
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -162,5 +199,6 @@ export async function extractTextFromPdf(file: File | Blob): Promise<string> {
     allLines.push('');
   }
 
-  return allLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  const sectioned = sectionizeLines(allLines);
+  return sectioned.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }

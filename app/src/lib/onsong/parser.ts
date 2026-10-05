@@ -36,7 +36,8 @@ const SECTION_LABELS = [
   'prechorus', 'tag', 'interlude', 'instrumental', 'coda', 'refrain',
   'estrofa', 'coro', 'puente', 'introducción', 'final', 'estribillo',
   'verso', 'ponte', 'strumentale', 'ritornello', 'finale',
-  'preestribillo', 'pre-coro', 'precoro',
+  'preestribillo', 'pre-coro', 'precoro', 'pre-ponte', 'preponte',
+  'turnaround', 'ending', 'break',
 ];
 
 function unwrapBrackets(value: string): string {
@@ -142,7 +143,12 @@ function normalizeChordLines(lines: string[]): string[] {
 function isSectionLine(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed.endsWith(':')) return false;
-  const label = trimmed.slice(0, -1).toLowerCase().replace(/\s*\d+$/, '').trim();
+  const label = trimmed
+    .slice(0, -1)
+    .toLowerCase()
+    .replace(/\s*\d+\s*$/, '')
+    .replace(/^\s*\d+\s*/, '')
+    .trim();
   return SECTION_LABELS.includes(label);
 }
 
