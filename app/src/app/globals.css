@@ -4,6 +4,8 @@
 
 :root {
   color-scheme: dark;
+  --chord-color: theme('colors.chord');
+  --section-color: theme('colors.section');
 }
 
 html, body {
@@ -14,15 +16,43 @@ html, body {
 
 .song-line { display: flex; flex-wrap: wrap; align-items: flex-end; }
 .pair { display: inline-flex; flex-direction: column; white-space: pre; }
-.pair .chord { color: theme('colors.chord'); font-weight: bold; font-size: 0.85em; line-height: 1; min-height: 1em; }
+.pair .chord { color: var(--chord-color); font-weight: bold; font-size: 0.85em; line-height: 1; min-height: 1em; }
 .pair .chord.empty { visibility: hidden; }
 .pair .lyric { line-height: 1.2; }
 .pair.chord-only { margin-right: 0.6em; }
 .pair.chord-only:last-child { margin-right: 0; }
 .section-label {
-  color: theme('colors.section');
+  color: var(--section-color);
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.85em;
+}
+
+.print-only { display: none; }
+
+@media print {
+  :root {
+    color-scheme: light;
+    --chord-color: #c70202;
+    --section-color: #0a7f14;
+  }
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  [data-no-print],
+  [data-no-print] * {
+    display: none !important;
+  }
+  .print-only { display: block !important; }
+  .print-page {
+    page-break-after: always;
+    break-after: page;
+    padding: 0.75rem 0;
+  }
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
 }

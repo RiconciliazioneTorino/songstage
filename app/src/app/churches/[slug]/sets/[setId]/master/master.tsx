@@ -16,6 +16,10 @@ import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
+const CHORD_COLOR_KEY = 'songstage:chord-color';
+const SECTION_COLOR_KEY = 'songstage:section-color';
+const DEFAULT_CHORD_COLOR = '#4ade80';
+const DEFAULT_SECTION_COLOR = '#fbbf24';
 
 function parseBeatsPerBar(sig: string | null | undefined): number {
   if (!sig) return 4;
@@ -111,6 +115,9 @@ export function Master({
   const [metronomeStartAt, setMetronomeStartAt] = useState(0);
   const [metronomeBeatsPerBar, setMetronomeBeatsPerBar] = useState(4);
   const [emitMetronome, setEmitMetronome] = useState(false);
+  const [chordColor, setChordColor] = useState(DEFAULT_CHORD_COLOR);
+  const [sectionColor, setSectionColor] = useState(DEFAULT_SECTION_COLOR);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const roleRef = useRef(role);
   const metronomeRef = useRef<Metronome | null>(null);
   const promoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -242,6 +249,22 @@ export function Master({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, role, slidesLocal]);
+
+  // Restore local color preferences
+  useEffect(() => {
+    try {
+      const c = localStorage.getItem(CHORD_COLOR_KEY);
+      const s = localStorage.getItem(SECTION_COLOR_KEY);
+      if (c) setChordColor(c);
+      if (s) setSectionColor(s);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHORD_COLOR_KEY, chordColor);
+      localStorage.setItem(SECTION_COLOR_KEY, sectionColor);
+    } catch {}
+  }, [chordColor, sectionColor]);
 
   // Restore local emit-metronome preference
   useEffect(() => {
@@ -687,8 +710,15 @@ export function Master({
   }
 
   return (
-    <main className="h-dvh flex flex-col">
+    <main
+      className="h-dvh flex flex-col"
+      style={{
+        ['--chord-color' as any]: chordColor,
+        ['--section-color' as any]: sectionColor,
+      }}
+    >
       <div
+        data-no-print
         className="border-b border-border bg-panel p-3 flex flex-wrap gap-3 items-center"
         style={{
           paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
@@ -903,19 +933,119 @@ export function Master({
           {emitMetronome ? '🔊' : '🔈'}
         </button>
 
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setColorPickerOpen((v) => !v)}
+            className="h-9 px-2 rounded border border-border hover:border-accent flex items-center gap-1"
+            title="Colori di accordi e sezioni"
+            aria-expanded={colorPickerOpen}
+          >
+            <span
+              className="inline-block w-3 h-3 rounded-sm border border-zinc-700"
+              style={{ background: chordColor }}
+            />
+            <span
+              className="inline-block w-3 h-3 rounded-sm border border-zinc-700"
+              style={{ background: sectionColor }}
+            />
+          </button>
+          {colorPickerOpen && (
+            <div className="absolute right-0 top-10 z-30 w-64 bg-panel border border-border rounded-md shadow-lg p-3 space-y-3">
+              <div>
+                <label className="text-xs text-zinc-400 flex items-center justify-between mb-1">
+                  <span>Accordi</span>
+                  <button
+                    type="button"
+                    onClick={() => setChordColor(DEFAULT_CHORD_COLOR)}
+                    className="text-xs text-zinc-500 hover:text-white"
+                  >
+                    Reset
+                  </button>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={chordColor}
+                    onChange={(e) => setChordColor(e.target.value)}
+                    className="w-9 h-9 bg-transparent border border-border rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={chordColor}
+                    onChange={(e) => setChordColor(e.target.value)}
+                    className="flex-1 px-2 py-1 rounded bg-bg border border-border text-sm font-mono"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-zinc-400 flex items-center justify-between mb-1">
+                  <span>Sezioni</span>
+                  <button
+                    type="button"
+                    onClick={() => setSectionColor(DEFAULT_SECTION_COLOR)}
+                    className="text-xs text-zinc-500 hover:text-white"
+                  >
+                    Reset
+                  </button>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={sectionColor}
+                    onChange={(e) => setSectionColor(e.target.value)}
+                    className="w-9 h-9 bg-transparent border border-border rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={sectionColor}
+                    onChange={(e) => setSectionColor(e.target.value)}
+                    className="flex-1 px-2 py-1 rounded bg-bg border border-border text-sm font-mono"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-snug">
+                Le modifiche sono locali al tuo dispositivo e si applicano a questa vista. In stampa i colori sono fissi.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="h-9 px-2 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+          title="Esporta la scaletta in PDF (fondo bianco, acordi rossi, sezioni verdi)"
+        >
+          PDF
+        </button>
+
         <a
           href={projectorUrl}
           target="_blank"
           rel="noreferrer"
-          className="min-w-[2.25rem] h-9 rounded border border-accent text-accent hover:bg-accent/10 text-lg leading-none flex items-center justify-center"
-          title="Apri proiettore in nuova finestra"
+          className="h-9 px-3 rounded border border-accent text-accent hover:bg-accent/10 text-sm flex items-center gap-1.5"
+          title="Apri la vista proiettore in una nuova finestra per il video"
         >
-          ⧉
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+            aria-hidden
+          >
+            <rect x="2" y="4" width="20" height="13" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          Proietta
         </a>
       </div>
 
       {isViewer && (
-        <div className="border-b border-yellow-600/50 bg-yellow-950/40 text-yellow-200 text-sm px-4 py-2 flex items-center gap-3 flex-wrap">
+        <div data-no-print className="border-b border-yellow-600/50 bg-yellow-950/40 text-yellow-200 text-sm px-4 py-2 flex items-center gap-3 flex-wrap">
           <span>👁</span>
           <span>
             Sei in modalità viewer.
@@ -958,12 +1088,12 @@ export function Master({
         </div>
       )}
       {role === 'connecting' && (
-        <div className="border-b border-border bg-panel/60 text-zinc-400 text-sm px-4 py-2">
+        <div data-no-print className="border-b border-border bg-panel/60 text-zinc-400 text-sm px-4 py-2">
           Connessione…
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <div data-no-print className="flex-1 flex overflow-hidden">
         {sidebarOpen && (
           <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0">
             <ol className="p-2 text-sm">
@@ -1240,6 +1370,28 @@ export function Master({
           </div>
         </div>
       )}
+
+      <div className="print-only" aria-hidden>
+        <h1 style={{ color: '#000', fontSize: '1.5rem', marginBottom: '0.75rem' }}>
+          {setName}
+        </h1>
+        {slidesLocal.map((s, i) => {
+          const parsed = parseOnSong(s.body);
+          return (
+            <div key={s.itemId} className="print-page">
+              <div style={{ color: '#555', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+                {i + 1} / {slidesLocal.length}
+              </div>
+              <SongView
+                song={parsed}
+                semitones={s.transpose}
+                fontScale={1}
+                showChords
+              />
+            </div>
+          );
+        })}
+      </div>
     </main>
   );
 }

@@ -67,7 +67,8 @@ export function EditSongForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <>
+    <form action={action} className="space-y-4" data-no-print>
       <div className="rounded-md border border-border bg-panel p-3 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-zinc-400">Tonalità base:</span>
@@ -109,6 +110,14 @@ export function EditSongForm({
             aria-pressed={previewOpen}
           >
             {previewOpen ? 'Nascondi anteprima' : 'Anteprima'}
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="h-9 px-3 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            title="Esporta in PDF (fondo bianco, acordi rossi, sezioni verdi)"
+          >
+            PDF
           </button>
         </div>
         {keyShift !== 0 && (
@@ -160,5 +169,9 @@ export function EditSongForm({
         {error && <p className="text-sm text-red-400 self-center">{error}</p>}
       </div>
     </form>
+    <div className="print-only" aria-hidden>
+      <SongView song={parsed} semitones={0} fontScale={1} showChords />
+    </div>
+    </>
   );
 }
