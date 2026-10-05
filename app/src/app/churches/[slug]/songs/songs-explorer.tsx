@@ -247,9 +247,11 @@ export function SongsExplorer({
                 setKey('');
                 setTempoRange('');
               }}
-              className="px-3 py-2 rounded-full border border-border text-sm text-zinc-400 hover:border-accent hover:text-white"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-border text-zinc-400 hover:border-accent hover:text-white"
+              title="Pulisci filtri"
+              aria-label="Pulisci filtri"
             >
-              Pulisci
+              ✕
             </button>
           )}
         </div>
