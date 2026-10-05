@@ -220,6 +220,48 @@ export default async function SongPage({
           </div>
         )}
 
+        {!isSongChurchScoped && (
+          <div className="mt-4 rounded-md border border-accent/40 bg-accent/5 p-3 text-sm text-zinc-300 flex items-start gap-3">
+            <span aria-hidden className="text-lg leading-none">📚</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-accent">
+                Canzone dalla libreria canonica
+              </div>
+              <p className="mt-1 text-xs text-zinc-400">
+                Questa versione è condivisa tra tutte le chiese e non può
+                essere modificata direttamente qui. Puoi crearne una variante{' '}
+                <strong>personale</strong> qui sotto, oppure{' '}
+                {adoptedCopyId ? (
+                  <>
+                    aprire la{' '}
+                    <Link
+                      href={`/churches/${slug}/songs/${adoptedCopyId}`}
+                      className="text-accent hover:underline"
+                    >
+                      versione già adottata
+                    </Link>{' '}
+                    della chiesa.
+                  </>
+                ) : canAdopt ? (
+                  <>
+                    adottarla col pulsante{' '}
+                    <span className="text-accent">
+                      «⤓ Adotta per la chiesa»
+                    </span>{' '}
+                    qui sopra per avere una copia modificabile condivisa con
+                    tutta la chiesa.
+                  </>
+                ) : (
+                  <>
+                    chiedere a un amministratore della chiesa di adottarla per
+                    averne una copia modificabile.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
         <SongViewer tracks={tracks} defaultTrackId={defaultTrackId} />
 
         <VariationsActions
