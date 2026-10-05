@@ -1387,16 +1387,10 @@ export function Master({
       )}
 
       <div ref={printRef} className="print-only" aria-hidden>
-        <h1 style={{ color: '#000', fontSize: '1.5rem', marginBottom: '0.75rem' }}>
-          {setName}
-        </h1>
-        {slidesLocal.map((s, i) => {
+        {slidesLocal.map((s) => {
           const parsed = parseOnSong(s.body);
           return (
             <div key={s.itemId} className="print-page">
-              <div style={{ color: '#555', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-                {i + 1} / {slidesLocal.length}
-              </div>
               <SongView
                 song={parsed}
                 semitones={s.transpose}
