@@ -376,23 +376,32 @@ export function SongsExplorer({
                     {versionNumber != null && (
                       <span
                         title={`Versione corrente: v${versionNumber}`}
-                        className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono"
+                        className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-zinc-500/10 border border-zinc-500/40 font-mono"
                       >
                         v{versionNumber}
                       </span>
                     )}
                     {s.default_tempo && (
-                      <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono">
+                      <span
+                        title="BPM"
+                        className="text-xs text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/40 font-mono"
+                      >
                         {s.default_tempo} bpm
                       </span>
                     )}
                     {s.time_signature && (
-                      <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border font-mono">
+                      <span
+                        title="Metro"
+                        className="text-xs text-violet-300 px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/40 font-mono"
+                      >
                         {s.time_signature}
                       </span>
                     )}
                     {s.original_key && (
-                      <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border">
+                      <span
+                        title="Tonalità"
+                        className="text-xs text-sky-300 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/40"
+                      >
                         {s.original_key}
                       </span>
                     )}
