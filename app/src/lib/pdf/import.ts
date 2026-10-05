@@ -12,10 +12,13 @@
  */
 export async function extractTextFromPdf(file: File | Blob): Promise<string> {
   const pdfjs: any = await import('pdfjs-dist');
-  // Disable worker — simpler, works everywhere; small PDFs it's fine.
-  pdfjs.GlobalWorkerOptions.workerSrc = '';
+  // Next bundles this worker as a static asset and gives us its URL.
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+  ).toString();
   const data = new Uint8Array(await file.arrayBuffer());
-  const doc = await pdfjs.getDocument({ data, disableWorker: true }).promise;
+  const doc = await pdfjs.getDocument({ data }).promise;
 
   const allLines: string[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
