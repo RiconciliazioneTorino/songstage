@@ -75,7 +75,7 @@ export function EditSongForm({
       <div className="rounded-md border border-border bg-panel p-3 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-zinc-400">Tonalità base:</span>
-          <span className="text-sm font-mono px-2 py-0.5 rounded bg-bg border border-border">
+          <span className="text-sm font-mono px-2 py-0.5 rounded-full bg-bg border border-border">
             {currentKey}
           </span>
           {keyShift !== 0 && originalKey && (
@@ -88,7 +88,7 @@ export function EditSongForm({
           <button
             type="button"
             onClick={() => applyTranspose(-1)}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Abbassa di un semitono"
           >
             ♭
@@ -96,7 +96,7 @@ export function EditSongForm({
           <button
             type="button"
             onClick={() => applyTranspose(1)}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Alza di un semitono"
           >
             ♯
@@ -104,7 +104,7 @@ export function EditSongForm({
           <button
             type="button"
             onClick={() => setPreviewOpen((v) => !v)}
-            className={`h-9 px-3 rounded border text-sm flex items-center justify-center ${
+            className={`h-9 px-3 rounded-full border text-sm flex items-center justify-center ${
               previewOpen
                 ? 'border-accent text-accent'
                 : 'border-border text-zinc-400 hover:border-accent hover:text-white'
@@ -130,7 +130,7 @@ export function EditSongForm({
                 setExportingPdf(false);
               }
             }}
-            className="h-9 px-3 rounded border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
+            className="h-9 px-3 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
             title="Scarica in PDF (fondo bianco, accordi rossi, sezioni verdi)"
           >
             {exportingPdf ? '…' : 'PDF'}
@@ -178,7 +178,7 @@ export function EditSongForm({
         <button
           type="submit"
           disabled={pending}
-          className="px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+          className="px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
         >
           {pending ? 'Salvataggio…' : 'Salva come nuova versione'}
         </button>

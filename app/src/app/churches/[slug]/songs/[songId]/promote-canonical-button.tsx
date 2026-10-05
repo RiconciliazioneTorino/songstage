@@ -23,7 +23,7 @@ export function PromoteCanonicalButton({ songId, title }: { songId: string; titl
           if (res.canonicalId) router.push(`/library/${res.canonicalId}`);
         });
       }}
-      className="text-sm px-3 py-1 rounded-md border border-border hover:border-accent disabled:opacity-50"
+      className="text-sm px-3 py-1 rounded-full border border-border hover:border-accent disabled:opacity-50"
       title="Copia questa canzone nella libreria canonica"
     >
       {pending ? '…' : '📚 Promuovi a canonica'}

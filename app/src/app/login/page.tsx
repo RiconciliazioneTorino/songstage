@@ -119,7 +119,7 @@ function LoginInner() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
           >
             {busy ? 'Invio…' : 'Invia codice'}
           </button>
@@ -145,7 +145,7 @@ function LoginInner() {
           <button
             type="submit"
             disabled={busy || token.length < 6}
-            className="w-full px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
           >
             {busy ? 'Verifica…' : 'Entra'}
           </button>

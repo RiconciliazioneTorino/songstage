@@ -50,7 +50,7 @@ export default async function Dashboard() {
           <p className="mb-4 text-zinc-300">Non appartieni ancora a nessuna chiesa.</p>
           <Link
             href="/churches/new"
-            className="inline-block px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10"
+            className="inline-block px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10"
           >
             Crea chiesa
           </Link>

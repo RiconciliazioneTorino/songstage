@@ -29,32 +29,31 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
     new Set(list.map((s: any) => s.created_by).filter(Boolean))
   );
 
-  // Creators (join readable through church_members policy for shared churches)
+  // Creators + counts fetched in parallel — they don't depend on each other.
+  const [creatorsRes, itemsRes] = await Promise.all([
+    creatorIds.length > 0
+      ? supabase
+          .from('users')
+          .select('id, email, display_name')
+          .in('id', creatorIds)
+      : Promise.resolve({ data: [] as any[] }),
+    setIds.length > 0
+      ? supabase.from('set_items').select('set_id').in('set_id', setIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
   const creatorsMap = new Map<string, { email: string; display_name: string | null }>();
-  if (creatorIds.length > 0) {
-    const { data: creators } = await supabase
-      .from('users')
-      .select('id, email, display_name')
-      .in('id', creatorIds);
-    for (const c of creators ?? []) {
-      creatorsMap.set(c.id as string, {
-        email: c.email as string,
-        display_name: c.display_name as string | null,
-      });
-    }
+  for (const c of creatorsRes.data ?? []) {
+    creatorsMap.set(c.id as string, {
+      email: c.email as string,
+      display_name: c.display_name as string | null,
+    });
   }
 
-  // Song counts
   const countsMap = new Map<string, number>();
-  if (setIds.length > 0) {
-    const { data: items } = await supabase
-      .from('set_items')
-      .select('set_id')
-      .in('set_id', setIds);
-    for (const it of items ?? []) {
-      const sid = it.set_id as string;
-      countsMap.set(sid, (countsMap.get(sid) ?? 0) + 1);
-    }
+  for (const it of itemsRes.data ?? []) {
+    const sid = it.set_id as string;
+    countsMap.set(sid, (countsMap.get(sid) ?? 0) + 1);
   }
 
   const now = Date.now();
@@ -83,7 +82,7 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
         <h1 className="text-3xl font-bold">Set</h1>
         <Link
           href={`/churches/${church.slug}/sets/new`}
-          className="px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm"
+          className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
         >
           + Nuovo
         </Link>
@@ -106,7 +105,7 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
                   <div className="font-medium flex items-center gap-2 flex-wrap">
                     <span className="truncate">{s.name}</span>
                     {s.isLive && (
-                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-bold text-red-100 bg-red-600/80 rounded px-1.5 py-0.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-bold text-red-100 bg-red-600/80 rounded-full px-1.5 py-0.5">
                         <span className="relative flex h-1.5 w-1.5">
                           <span className="absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75 animate-ping" />
                           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-100" />

@@ -65,7 +65,7 @@ export function BandMembersPanel({
                     await removeBandMember(bandId, m.user.id);
                     refresh();
                   }}
-                  className="text-xs px-2 py-1 rounded border border-border hover:border-red-500"
+                  className="text-xs px-2 py-1 rounded-full border border-border hover:border-red-500"
                 >
                   Rimuovi
                 </button>
@@ -80,7 +80,7 @@ export function BandMembersPanel({
           {!pickerOpen ? (
             <button
               onClick={() => setPickerOpen(true)}
-              className="w-full px-3 py-2 rounded-md border border-dashed border-border hover:border-accent text-sm text-zinc-400 hover:text-accent"
+              className="w-full px-3 py-2 rounded-full border border-dashed border-border hover:border-accent text-sm text-zinc-400 hover:text-accent"
             >
               + Aggiungi membro
             </button>
@@ -90,7 +90,7 @@ export function BandMembersPanel({
                 <span className="text-sm text-zinc-300">Aggiungi dalla chiesa</span>
                 <button
                   onClick={() => setPickerOpen(false)}
-                  className="text-xs px-2 py-1 rounded border border-border"
+                  className="text-xs px-2 py-1 rounded-full border border-border"
                 >
                   Chiudi
                 </button>
@@ -116,7 +116,7 @@ export function BandMembersPanel({
                             refresh();
                           }
                         }}
-                        className="text-xs px-2 py-1 rounded border border-accent text-accent hover:bg-accent/10"
+                        className="text-xs px-2 py-1 rounded-full border border-accent text-accent hover:bg-accent/10"
                       >
                         Aggiungi
                       </button>
@@ -150,7 +150,7 @@ export function BandMembersPanel({
                     if (r?.error) setError(r.error);
                   }}
                   disabled={pending}
-                  className="text-xs px-2 py-1 rounded border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                  className="text-xs px-2 py-1 rounded-full border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                 >
                   {pending ? '…' : 'Sì, elimina'}
                 </button>
@@ -159,7 +159,7 @@ export function BandMembersPanel({
                     setConfirmingDelete(false);
                     setError(null);
                   }}
-                  className="text-xs px-2 py-1 rounded border border-border"
+                  className="text-xs px-2 py-1 rounded-full border border-border"
                 >
                   Annulla
                 </button>

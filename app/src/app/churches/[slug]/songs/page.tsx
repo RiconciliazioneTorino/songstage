@@ -16,25 +16,29 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
     .maybeSingle();
   if (!church) notFound();
 
-  const { data: myMembership } = await supabase
-    .from('church_members')
-    .select('role')
-    .eq('church_id', church.id)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // Membership and the song list don't depend on each other — fetch in parallel.
+  const [membershipRes, songsRes] = await Promise.all([
+    supabase
+      .from('church_members')
+      .select('role')
+      .eq('church_id', church.id)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('songs')
+      .select(
+        `id, title, artist, original_key, default_tempo, time_signature, church_id,
+         current_version:song_versions!songs_current_version_fk(version_number),
+         audio_attachments(kind)`
+      )
+      .or(`church_id.eq.${church.id},church_id.is.null`)
+      .order('title'),
+  ]);
+  const myMembership = membershipRes.data;
+  const songs = songsRes.data;
   const canCreate =
     !!myMembership && (myMembership.role === 'admin' || myMembership.role === 'director');
   const isAdmin = myMembership?.role === 'admin';
-
-  const { data: songs } = await supabase
-    .from('songs')
-    .select(
-      `id, title, artist, original_key, default_tempo, time_signature, church_id,
-       current_version:song_versions!songs_current_version_fk(version_number),
-       audio_attachments(kind)`
-    )
-    .or(`church_id.eq.${church.id},church_id.is.null`)
-    .order('title');
 
   return (
     <main className="min-h-screen p-8 max-w-3xl mx-auto">
@@ -47,14 +51,14 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
           <div className="flex gap-2">
             <Link
               href={`/churches/${church.slug}/songs/import`}
-              className="px-3 py-1.5 rounded-md border border-border hover:border-accent text-sm"
+              className="px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"
             >
               Importa OnSong
             </Link>
             {isAdmin && (
               <Link
                 href={`/churches/${church.slug}/songs/import-pdf`}
-                className="px-3 py-1.5 rounded-md border border-border hover:border-accent text-sm"
+                className="px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm"
                 title="Importa una canzone da un PDF (solo admin, beta)"
               >
                 Importa PDF
@@ -62,7 +66,7 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
             )}
             <Link
               href={`/churches/${church.slug}/songs/new`}
-              className="px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm"
+              className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
             >
               + Nuova
             </Link>

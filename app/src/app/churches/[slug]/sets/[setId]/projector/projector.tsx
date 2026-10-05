@@ -78,7 +78,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
       }}
     >
       {!connected && (
-        <div className="fixed top-2 right-2 text-xs text-zinc-500 px-2 py-1 rounded bg-panel border border-border">
+        <div className="fixed top-2 right-2 text-xs text-zinc-500 px-2 py-1 rounded-full bg-panel border border-border">
           Connessione…
         </div>
       )}

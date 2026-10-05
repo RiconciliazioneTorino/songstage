@@ -99,7 +99,7 @@ export function AudioPanel({
                       await removeSongAudio(a.id);
                       refresh();
                     }}
-                    className="text-xs px-2 py-1 rounded border border-border hover:border-red-500"
+                    className="text-xs px-2 py-1 rounded-full border border-border hover:border-red-500"
                   >
                     Rimuovi
                   </button>
@@ -150,7 +150,7 @@ export function AudioPanel({
               <button
                 type="submit"
                 disabled={pending}
-                className="px-3 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50 text-sm"
+                className="px-3 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50 text-sm"
               >
                 {pending ? '…' : 'Aggiungi'}
               </button>

@@ -189,7 +189,7 @@ export default async function SongPage({
             {adoptedCopyId && (
               <Link
                 href={`/churches/${slug}/songs/${adoptedCopyId}`}
-                className="text-sm px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent/10"
+                className="text-sm px-3 py-1 rounded-full border border-accent text-accent hover:bg-accent/10"
               >
                 Apri versione chiesa →
               </Link>
@@ -198,7 +198,7 @@ export default async function SongPage({
               <>
                 <Link
                   href={`/churches/${slug}/songs/${songId}/edit`}
-                  className="text-sm px-3 py-1 rounded-md border border-border hover:border-accent"
+                  className="text-sm px-3 py-1 rounded-full border border-border hover:border-accent"
                 >
                   Modifica base
                 </Link>

@@ -240,7 +240,7 @@ export function SongsExplorer({
                 setTempoMin('');
                 setTempoMax('');
               }}
-              className="px-3 py-2 rounded-md border border-border text-sm text-zinc-400 hover:border-accent hover:text-white"
+              className="px-3 py-2 rounded-full border border-border text-sm text-zinc-400 hover:border-accent hover:text-white"
             >
               Pulisci
             </button>
@@ -428,7 +428,7 @@ export function SongsExplorer({
           <button
             onClick={onCreateSet}
             disabled={busy}
-            className="px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm disabled:opacity-50"
+            className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm disabled:opacity-50"
           >
             Crea set
           </button>
@@ -436,7 +436,7 @@ export function SongsExplorer({
             <button
               onClick={onDelete}
               disabled={busy}
-              className="px-3 py-1.5 rounded-md border border-red-500/60 text-red-400 hover:bg-red-500/10 text-sm disabled:opacity-50"
+              className="px-3 py-1.5 rounded-full border border-red-500/60 text-red-400 hover:bg-red-500/10 text-sm disabled:opacity-50"
             >
               Elimina
             </button>
@@ -471,14 +471,14 @@ export function SongsExplorer({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => !busy && setSetModalOpen(false)}
-                className="px-3 py-1.5 rounded-md border border-border text-sm"
+                className="px-3 py-1.5 rounded-full border border-border text-sm"
               >
                 Annulla
               </button>
               <button
                 onClick={submitCreateSet}
                 disabled={busy || !newSetName.trim()}
-                className="px-3 py-1.5 rounded-md bg-accent text-black text-sm disabled:opacity-50"
+                className="px-3 py-1.5 rounded-full bg-accent text-black text-sm disabled:opacity-50"
               >
                 {busy ? 'Creazione…' : 'Crea'}
               </button>

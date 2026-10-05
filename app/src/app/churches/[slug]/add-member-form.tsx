@@ -116,7 +116,7 @@ export function AddMemberForm({
           type="button"
           disabled={pending}
           onClick={invite}
-          className="w-full text-left px-3 py-2 rounded border border-dashed border-border hover:border-accent text-sm text-zinc-400 hover:text-accent"
+          className="w-full text-left px-3 py-2 rounded-full border border-dashed border-border hover:border-accent text-sm text-zinc-400 hover:text-accent"
         >
           + Invita <span className="font-mono">{trimmed}</span> — sarà aggiunto al primo accesso
         </button>

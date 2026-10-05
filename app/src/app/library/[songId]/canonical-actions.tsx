@@ -36,14 +36,14 @@ export function CanonicalActions({
           <>
             <Link
               href={`/library/${songId}/edit`}
-              className="text-sm px-3 py-1 rounded-md border border-border hover:border-accent"
+              className="text-sm px-3 py-1 rounded-full border border-border hover:border-accent"
             >
               Modifica
             </Link>
             {!confirmingDelete ? (
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="text-sm px-3 py-1 rounded-md border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
+                className="text-sm px-3 py-1 rounded-full border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
               >
                 Elimina
               </button>
@@ -61,7 +61,7 @@ export function CanonicalActions({
                     if (r?.error) setError(r.error);
                   }}
                   disabled={pending}
-                  className="text-xs px-2 py-1 rounded-md border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                  className="text-xs px-2 py-1 rounded-full border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                 >
                   {pending ? '…' : 'Sì, elimina'}
                 </button>
@@ -70,7 +70,7 @@ export function CanonicalActions({
                     setConfirmingDelete(false);
                     setError(null);
                   }}
-                  className="text-xs px-2 py-1 rounded-md border border-border"
+                  className="text-xs px-2 py-1 rounded-full border border-border"
                 >
                   Annulla
                 </button>
@@ -84,7 +84,7 @@ export function CanonicalActions({
         {adoptableChurches.length === 0 ? null : !adopting ? (
           <button
             onClick={() => setAdopting(true)}
-            className="text-sm px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10"
+            className="text-sm px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10"
           >
             Adotta nel repertorio…
           </button>
@@ -97,7 +97,7 @@ export function CanonicalActions({
                   <Link
                     key={c.id}
                     href={`/churches/${c.slug}/songs/${already.id}`}
-                    className="text-xs px-2 py-1 rounded border border-border bg-panel text-zinc-300 hover:border-accent"
+                    className="text-xs px-2 py-1 rounded-full border border-border bg-panel text-zinc-300 hover:border-accent"
                   >
                     {c.name} ✓
                   </Link>
@@ -115,7 +115,7 @@ export function CanonicalActions({
                     else router.refresh();
                   }}
                   disabled={pending}
-                  className="text-xs px-2 py-1 rounded border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+                  className="text-xs px-2 py-1 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
                 >
                   → {c.name}
                 </button>
@@ -123,7 +123,7 @@ export function CanonicalActions({
             })}
             <button
               onClick={() => setAdopting(false)}
-              className="text-xs px-2 py-1 rounded border border-border"
+              className="text-xs px-2 py-1 rounded-full border border-border"
             >
               ✕
             </button>

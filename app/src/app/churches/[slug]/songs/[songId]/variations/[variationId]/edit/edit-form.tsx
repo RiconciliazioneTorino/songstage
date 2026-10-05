@@ -62,7 +62,7 @@ export function EditVariationForm({
         <button
           type="submit"
           disabled={pending}
-          className="px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+          className="px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
         >
           {pending ? 'Salvataggio…' : 'Salva'}
         </button>
@@ -71,7 +71,7 @@ export function EditVariationForm({
           <button
             type="button"
             onClick={() => setConfirmingDelete(true)}
-            className="text-xs px-3 py-2 rounded-md border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
+            className="text-xs px-3 py-2 rounded-full border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
           >
             Elimina variante
           </button>
@@ -88,14 +88,14 @@ export function EditVariationForm({
                 if (r?.error) setError(r.error);
               }}
               disabled={pending}
-              className="text-xs px-2 py-1 rounded-md border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+              className="text-xs px-2 py-1 rounded-full border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
             >
               Sì
             </button>
             <button
               type="button"
               onClick={() => setConfirmingDelete(false)}
-              className="text-xs px-2 py-1 rounded-md border border-border"
+              className="text-xs px-2 py-1 rounded-full border border-border"
             >
               No
             </button>

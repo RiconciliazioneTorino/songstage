@@ -25,7 +25,7 @@ export function AdoptCanonicalButton({
           if (r?.error) alert(r.error);
         });
       }}
-      className="text-sm px-3 py-1 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+      className="text-sm px-3 py-1 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
       title="Crea una copia modificabile di questa canzone per la chiesa"
     >
       {pending ? '…' : '⤓ Adotta per la chiesa'}

@@ -81,7 +81,7 @@ export function SetEditor({
                       await moveSetItem(item.id, 'up');
                       refresh();
                     }}
-                    className="px-2 py-1 rounded border border-border hover:border-accent text-xs disabled:opacity-30"
+                    className="px-2 py-1 rounded-full border border-border hover:border-accent text-xs disabled:opacity-30"
                   >
                     ▲
                   </button>
@@ -92,7 +92,7 @@ export function SetEditor({
                       await moveSetItem(item.id, 'down');
                       refresh();
                     }}
-                    className="px-2 py-1 rounded border border-border hover:border-accent text-xs disabled:opacity-30"
+                    className="px-2 py-1 rounded-full border border-border hover:border-accent text-xs disabled:opacity-30"
                   >
                     ▼
                   </button>
@@ -102,7 +102,7 @@ export function SetEditor({
                       await removeSetItem(item.id);
                       refresh();
                     }}
-                    className="px-2 py-1 rounded border border-border hover:border-red-500 text-xs"
+                    className="px-2 py-1 rounded-full border border-border hover:border-red-500 text-xs"
                   >
                     ✕
                   </button>
@@ -116,7 +116,7 @@ export function SetEditor({
       {!pickerOpen ? (
         <button
           onClick={() => setPickerOpen(true)}
-          className="w-full px-3 py-2 rounded-md border border-dashed border-border hover:border-accent text-sm text-zinc-400 hover:text-accent"
+          className="w-full px-3 py-2 rounded-full border border-dashed border-border hover:border-accent text-sm text-zinc-400 hover:text-accent"
         >
           + Aggiungi canzone
         </button>
@@ -132,7 +132,7 @@ export function SetEditor({
             />
             <button
               onClick={() => setPickerOpen(false)}
-              className="px-3 py-2 rounded-md border border-border text-sm"
+              className="px-3 py-2 rounded-full border border-border text-sm"
             >
               Chiudi
             </button>
@@ -156,7 +156,7 @@ export function SetEditor({
                     {s.artist && <div className="text-xs text-zinc-500">{s.artist}</div>}
                   </div>
                   {s.original_key && (
-                    <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border">
+                    <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
                       {s.original_key}
                     </span>
                   )}
@@ -230,7 +230,7 @@ function TransposeControl({
     <div className="flex items-center gap-1">
       <button
         onClick={() => update(v - 1)}
-        className="w-6 h-6 rounded border border-border hover:border-accent text-xs"
+        className="w-6 h-6 rounded-full border border-border hover:border-accent text-xs"
       >
         −
       </button>
@@ -240,7 +240,7 @@ function TransposeControl({
       </span>
       <button
         onClick={() => update(v + 1)}
-        className="w-6 h-6 rounded border border-border hover:border-accent text-xs"
+        className="w-6 h-6 rounded-full border border-border hover:border-accent text-xs"
       >
         +
       </button>

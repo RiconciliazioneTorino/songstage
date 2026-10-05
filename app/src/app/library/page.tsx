@@ -30,7 +30,7 @@ export default async function LibraryPage() {
         {isCurator && (
           <Link
             href="/library/new"
-            className="px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm"
+            className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
           >
             + Nuova
           </Link>
@@ -59,7 +59,7 @@ export default async function LibraryPage() {
                   {s.artist && <div className="text-xs text-zinc-500">{s.artist}</div>}
                 </div>
                 {s.original_key && (
-                  <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border">
+                  <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
                     {s.original_key}
                   </span>
                 )}

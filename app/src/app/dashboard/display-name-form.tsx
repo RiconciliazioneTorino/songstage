@@ -48,7 +48,7 @@ export function DisplayNameForm({ initial }: { initial: string }) {
       <button
         type="submit"
         disabled={pending || !name.trim()}
-        className="px-2 py-1 rounded border border-accent text-accent hover:bg-accent/10 text-xs disabled:opacity-50"
+        className="px-2 py-1 rounded-full border border-accent text-accent hover:bg-accent/10 text-xs disabled:opacity-50"
       >
         {pending ? '…' : 'Salva'}
       </button>

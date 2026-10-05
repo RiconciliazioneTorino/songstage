@@ -738,7 +738,7 @@ export function Master({
         </Link>
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
+          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
           aria-label={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
           title={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
         >
@@ -753,7 +753,7 @@ export function Master({
           <button
             disabled={index === 0}
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
           >
             ◀
           </button>
@@ -763,7 +763,7 @@ export function Master({
           <button
             disabled={index === slidesLocal.length - 1}
             onClick={() => setIndex((i) => Math.min(slidesLocal.length - 1, i + 1))}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
           >
             ▶
           </button>
@@ -772,18 +772,18 @@ export function Master({
         <div className="flex items-center gap-1" title="Trasposizione">
           <button
             onClick={() => bumpTranspose(-1)}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Abbassa di un semitono"
           >
             ♭
           </button>
-          <span className="text-sm h-9 px-2 rounded bg-bg border border-border min-w-[3rem] text-center font-mono flex items-center justify-center">
+          <span className="text-sm h-9 px-2 rounded-full bg-bg border border-border min-w-[3rem] text-center font-mono flex items-center justify-center">
             {totalSemitones >= 0 ? '+' : ''}
             {totalSemitones}
           </span>
           <button
             onClick={() => bumpTranspose(1)}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Alza di un semitono"
           >
             ♯
@@ -793,14 +793,14 @@ export function Master({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Diminuisci carattere"
           >
             A−
           </button>
           <button
             onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Ingrandisci carattere"
           >
             A+
@@ -851,7 +851,7 @@ export function Master({
 
         <button
           onClick={() => setShowChords((v) => !v)}
-          className={`min-w-[2.25rem] h-9 rounded border text-xl leading-none flex items-center justify-center ${
+          className={`min-w-[2.25rem] h-9 rounded-full border text-xl leading-none flex items-center justify-center ${
             showChords
               ? 'border-accent text-accent'
               : 'border-border text-zinc-500 hover:border-accent'
@@ -865,14 +865,14 @@ export function Master({
         <div className="flex items-center gap-1" title="Metronomo">
           <button
             onClick={() => bumpBpm(-1)}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="BPM -1"
           >
             −
           </button>
           <button
             onClick={toggleMetronome}
-            className={`h-9 px-2 rounded border text-sm font-mono flex items-center justify-center min-w-[5rem] ${
+            className={`h-9 px-2 rounded-full border text-sm font-mono flex items-center justify-center min-w-[5rem] ${
               metronomeRunning
                 ? 'border-accent text-accent'
                 : 'border-border text-zinc-300 hover:border-accent'
@@ -884,7 +884,7 @@ export function Master({
           </button>
           <button
             onClick={() => bumpBpm(1)}
-            className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-sm flex items-center justify-center"
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="BPM +1"
           >
             +
@@ -898,7 +898,7 @@ export function Master({
             setPickerQuery('');
             setPickerOpen(true);
           }}
-          className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
           title="Aggiungi canzone al set"
         >
           +
@@ -910,7 +910,7 @@ export function Master({
             setEditError(null);
             setEditing(true);
           }}
-          className="min-w-[2.25rem] h-9 rounded border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
+          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
           title="Modifica testo canzone"
         >
           ✎
@@ -921,7 +921,7 @@ export function Master({
         <button
           type="button"
           onClick={() => setEmitMetronome((v) => !v)}
-          className={`h-9 px-2 rounded border text-lg leading-none flex items-center justify-center ${
+          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
             emitMetronome
               ? 'border-accent text-accent'
               : 'border-border text-zinc-500 hover:border-accent'
@@ -940,7 +940,7 @@ export function Master({
           <button
             type="button"
             onClick={() => setColorPickerOpen((v) => !v)}
-            className="h-9 px-2 rounded border border-border hover:border-accent flex items-center gap-1"
+            className="h-9 px-2 rounded-full border border-border hover:border-accent flex items-center gap-1"
             title="Colori di accordi e sezioni"
             aria-expanded={colorPickerOpen}
           >
@@ -1029,7 +1029,7 @@ export function Master({
               setExportingPdf(false);
             }
           }}
-          className="h-9 px-2 rounded border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
+          className="h-9 px-2 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
           title="Scarica la scaletta in PDF (fondo bianco, accordi rossi, sezioni verdi)"
         >
           {exportingPdf ? '…' : 'PDF'}
@@ -1039,7 +1039,7 @@ export function Master({
           href={projectorUrl}
           target="_blank"
           rel="noreferrer"
-          className="h-9 px-3 rounded border border-accent text-accent hover:bg-accent/10 text-sm flex items-center gap-1.5"
+          className="h-9 px-3 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm flex items-center gap-1.5"
           title="Apri la vista proiettore in una nuova finestra per il video"
         >
           <svg
@@ -1087,7 +1087,7 @@ export function Master({
             <button
               type="button"
               onClick={requestLead}
-              className="px-3 py-1 rounded border border-yellow-400 text-yellow-100 hover:bg-yellow-500/10 text-xs"
+              className="px-3 py-1 rounded-full border border-yellow-400 text-yellow-100 hover:bg-yellow-500/10 text-xs"
             >
               Richiedi controllo
             </button>
@@ -1095,7 +1095,7 @@ export function Master({
             <button
               type="button"
               onClick={takeControlDirect}
-              className="px-3 py-1 rounded border border-yellow-400 text-yellow-100 hover:bg-yellow-500/10 text-xs"
+              className="px-3 py-1 rounded-full border border-yellow-400 text-yellow-100 hover:bg-yellow-500/10 text-xs"
             >
               Prendi il controllo
             </button>
@@ -1116,7 +1116,7 @@ export function Master({
                 <li key={s.itemId}>
                   <button
                     onClick={() => setIndex(i)}
-                    className={`w-full text-left px-2 py-2 rounded flex items-baseline gap-2 hover:bg-bg ${
+                    className={`w-full text-left px-2 py-2 rounded-full flex items-baseline gap-2 hover:bg-bg ${
                       i === index ? 'bg-bg border-l-2 border-accent' : ''
                     }`}
                   >
@@ -1215,13 +1215,13 @@ export function Master({
           <div className="flex justify-end gap-2">
             <button
               onClick={denyLead}
-              className="px-2.5 py-1 rounded border border-border hover:border-accent text-xs"
+              className="px-2.5 py-1 rounded-full border border-border hover:border-accent text-xs"
             >
               Nega
             </button>
             <button
               onClick={grantLead}
-              className="px-2.5 py-1 rounded bg-accent text-black text-xs font-medium"
+              className="px-2.5 py-1 rounded-full bg-accent text-black text-xs font-medium"
             >
               Autorizza
             </button>
@@ -1268,7 +1268,7 @@ export function Master({
               <button
                 onClick={() => !saving && setEditing(false)}
                 disabled={saving}
-                className="px-3 py-1.5 rounded border border-border hover:border-accent text-sm disabled:opacity-50"
+                className="px-3 py-1.5 rounded-full border border-border hover:border-accent text-sm disabled:opacity-50"
               >
                 Annulla
               </button>
@@ -1304,7 +1304,7 @@ export function Master({
                   });
                 }}
                 disabled={saving || !editBody.trim()}
-                className="px-3 py-1.5 rounded bg-accent text-black text-sm disabled:opacity-50"
+                className="px-3 py-1.5 rounded-full bg-accent text-black text-sm disabled:opacity-50"
               >
                 {saving ? 'Salvataggio…' : 'Salva'}
               </button>
@@ -1370,7 +1370,7 @@ export function Master({
                     </div>
                     <div className="flex items-center gap-2">
                       {s.original_key && (
-                        <span className="text-xs text-zinc-400 px-2 py-0.5 rounded bg-bg border border-border">
+                        <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
                           {s.original_key}
                         </span>
                       )}

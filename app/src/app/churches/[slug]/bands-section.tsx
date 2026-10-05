@@ -64,7 +64,7 @@ export function BandsSection({
           {!creating ? (
             <button
               onClick={() => setCreating(true)}
-              className="text-sm px-3 py-2 rounded-md border border-dashed border-border hover:border-accent text-zinc-400 hover:text-accent w-full"
+              className="text-sm px-3 py-2 rounded-full border border-dashed border-border hover:border-accent text-zinc-400 hover:text-accent w-full"
             >
               + Nuovo gruppo
             </button>
@@ -98,7 +98,7 @@ export function BandsSection({
               <button
                 type="submit"
                 disabled={pending}
-                className="px-3 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50 text-sm"
+                className="px-3 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50 text-sm"
               >
                 {pending ? '…' : 'Crea'}
               </button>
@@ -108,7 +108,7 @@ export function BandsSection({
                   setCreating(false);
                   setError(null);
                 }}
-                className="px-3 py-2 rounded-md border border-border text-sm"
+                className="px-3 py-2 rounded-full border border-border text-sm"
               >
                 Annulla
               </button>

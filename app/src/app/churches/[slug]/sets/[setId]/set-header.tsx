@@ -92,7 +92,7 @@ export function SetHeader({
             <button
               type="submit"
               disabled={pending}
-              className="px-3 py-1.5 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50 text-sm"
+              className="px-3 py-1.5 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50 text-sm"
             >
               {pending ? 'Salvataggio…' : 'Salva'}
             </button>
@@ -102,7 +102,7 @@ export function SetHeader({
                 setEditing(false);
                 setError(null);
               }}
-              className="px-3 py-1.5 rounded-md border border-border text-sm"
+              className="px-3 py-1.5 rounded-full border border-border text-sm"
             >
               Annulla
             </button>
@@ -125,21 +125,21 @@ export function SetHeader({
       <div className="flex flex-col items-end gap-2">
         <Link
           href={`/churches/${slug}/sets/${set.id}/master`}
-          className="px-3 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 text-sm"
+          className="px-3 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
         >
           Modalità proiezione ▸
         </Link>
         <div className="flex gap-2">
           <button
             onClick={() => setEditing(true)}
-            className="text-xs px-3 py-1 rounded-md border border-border hover:border-accent"
+            className="text-xs px-3 py-1 rounded-full border border-border hover:border-accent"
           >
             Modifica
           </button>
           {!confirmingDelete ? (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="text-xs px-3 py-1 rounded-md border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
+              className="text-xs px-3 py-1 rounded-full border border-border hover:border-red-500 text-zinc-400 hover:text-red-400"
             >
               Elimina
             </button>
@@ -154,7 +154,7 @@ export function SetHeader({
                   if (r?.error) setError(r.error);
                 }}
                 disabled={pending}
-                className="text-xs px-2 py-1 rounded-md border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                className="text-xs px-2 py-1 rounded-full border border-red-500 text-red-400 hover:bg-red-500/10 disabled:opacity-50"
               >
                 {pending ? '…' : 'Sì, elimina'}
               </button>
@@ -163,7 +163,7 @@ export function SetHeader({
                   setConfirmingDelete(false);
                   setError(null);
                 }}
-                className="text-xs px-2 py-1 rounded-md border border-border"
+                className="text-xs px-2 py-1 rounded-full border border-border"
               >
                 ✕
               </button>

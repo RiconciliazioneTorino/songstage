@@ -64,3 +64,13 @@ html[data-pdf-exporting="1"] .print-page { background: #ffffff; color: #000000; 
     break-after: auto;
   }
 }
+
+@keyframes nav-progress-indeterminate {
+  0%   { transform: translateX(-100%); width: 40%; }
+  50%  { transform: translateX(40%);   width: 60%; }
+  100% { transform: translateX(220%);  width: 40%; }
+}
+.nav-progress-bar {
+  animation: nav-progress-indeterminate 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 0 0 8px currentColor;
+}

@@ -131,7 +131,7 @@ export function PdfImportForm({ slug }: { slug: string }) {
           type="button"
           onClick={save}
           disabled={saving || !body.trim()}
-          className="px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+          className="px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
         >
           {saving ? 'Salvataggio…' : 'Crea canzone'}
         </button>

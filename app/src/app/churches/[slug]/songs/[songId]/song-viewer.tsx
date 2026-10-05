@@ -60,7 +60,7 @@ export function SongViewer({
             {selected?.editHref && (
               <Link
                 href={selected.editHref}
-                className="text-xs px-2 py-1 rounded border border-border hover:border-accent"
+                className="text-xs px-2 py-1 rounded-full border border-border hover:border-accent"
               >
                 Modifica
               </Link>
@@ -72,23 +72,23 @@ export function SongViewer({
           <span className="text-xs text-zinc-400 px-2">Trasposizione</span>
           <button
             onClick={() => setSemitones((s) => s - 1)}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="px-2 py-1 rounded-full border border-border hover:border-accent text-sm"
           >
             −
           </button>
-          <span className="text-xs px-2 py-1 rounded bg-bg border border-border min-w-[2.5rem] text-center">
+          <span className="text-xs px-2 py-1 rounded-full bg-bg border border-border min-w-[2.5rem] text-center">
             {semitones >= 0 ? '+' : ''}
             {semitones}
           </span>
           <button
             onClick={() => setSemitones((s) => s + 1)}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="px-2 py-1 rounded-full border border-border hover:border-accent text-sm"
           >
             +
           </button>
           <button
             onClick={() => setSemitones(0)}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-xs ml-1"
+            className="px-2 py-1 rounded-full border border-border hover:border-accent text-xs ml-1"
           >
             reset
           </button>
@@ -98,13 +98,13 @@ export function SongViewer({
           <span className="text-xs text-zinc-400 px-2">Font</span>
           <button
             onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="px-2 py-1 rounded-full border border-border hover:border-accent text-sm"
           >
             A−
           </button>
           <button
             onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
-            className="px-2 py-1 rounded border border-border hover:border-accent text-sm"
+            className="px-2 py-1 rounded-full border border-border hover:border-accent text-sm"
           >
             A+
           </button>

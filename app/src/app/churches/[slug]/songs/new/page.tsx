@@ -59,7 +59,7 @@ export default function NewSongPage() {
         <button
           type="submit"
           disabled={pending}
-          className="px-4 py-2 rounded-md border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
+          className="px-4 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 disabled:opacity-50"
         >
           {pending ? 'Salvataggio…' : 'Salva canzone'}
         </button>
