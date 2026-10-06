@@ -121,31 +121,27 @@ export async function inviteChurchMember(
   const cleanEmail = email.trim().toLowerCase();
   if (!cleanEmail || !cleanEmail.includes('@')) return { error: 'Email non valida' };
 
-  const { data: target } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', cleanEmail)
-    .maybeSingle();
+  // One definer call decides between "already registered → add now" and "leave
+  // an invitation", so we never have to read the users table from here.
+  const { data: outcome, error: rpcErr } = await supabase.rpc('invite_church_member', {
+    p_church_id: churchId,
+    p_email: cleanEmail,
+    p_role: role,
+  });
+  if (rpcErr) {
+    if (rpcErr.code === '23505') return { error: 'È già membro della chiesa' };
+    if (rpcErr.code === '22023') return { error: 'Email non valida' };
+    return { error: friendlyError(rpcErr, 'Impossibile invitare questa persona.') };
+  }
 
-  if (target) {
-    const { error } = await supabase
-      .from('church_members')
-      .insert({ church_id: churchId, user_id: target.id, role });
-    if (error) {
-      if (error.code === '23505') return { error: 'È già membro della chiesa' };
-      return { error: friendlyError(error, 'Impossibile invitare questa persona.') };
-    }
+  const result = (Array.isArray(outcome) ? outcome[0] : outcome) as
+    | { added: boolean; invited: boolean }
+    | null;
+
+  if (result?.added) {
     revalidatePath(`/churches/[slug]`, 'page');
     return { added: true };
   }
-
-  const { error: invErr } = await supabase
-    .from('church_invitations')
-    .upsert(
-      { church_id: churchId, email: cleanEmail, role, created_by: user.id },
-      { onConflict: 'church_id,email' }
-    );
-  if (invErr) return { error: friendlyError(invErr, 'Impossibile invitare questa persona.') };
 
   const [churchRes, inviterRes] = await Promise.all([
     supabase.from('churches').select('name, slug').eq('id', churchId).maybeSingle(),

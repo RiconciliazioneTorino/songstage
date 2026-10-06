@@ -28,7 +28,15 @@ export function AddMemberForm({
     text: string;
   } | null>(null);
 
+  // The search is a lookup, not a directory listing: the server returns nothing
+  // for queries shorter than 3 characters (see 0008_tighten_visibility.sql).
+  const canSearch = query.trim().length >= 3;
+
   useEffect(() => {
+    if (!canSearch) {
+      setCandidates([]);
+      return;
+    }
     let cancelled = false;
     const t = setTimeout(async () => {
       const res = await searchUsersForChurch(churchId, query.trim());
@@ -39,7 +47,7 @@ export function AddMemberForm({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [query, churchId]);
+  }, [query, churchId, canSearch]);
 
   function add(userId: string) {
     startTransition(async () => {
@@ -85,7 +93,7 @@ export function AddMemberForm({
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Cerca per email o nome…"
+          placeholder="Cerca per email o nome (min. 3 caratteri)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="flex-1 px-3 py-2 rounded-md bg-bg border border-border focus:border-accent outline-none text-sm"

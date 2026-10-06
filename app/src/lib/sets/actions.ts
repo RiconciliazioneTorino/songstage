@@ -228,19 +228,23 @@ export async function shareSet(
   if (!user) return { error: 'Non autenticato' };
 
   const trimmed = email.trim().toLowerCase();
-  const { data: target } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', trimmed)
-    .maybeSingle();
-  if (!target) {
-    return { error: 'Quell\'utente non si è ancora registrato. Chiedigli di accedere prima all\'app.' };
+  // Resolved server-side (see 0008_tighten_visibility.sql): reading `users` by
+  // email from here would let anyone probe which addresses are registered.
+  const { data: targetId } = await supabase.rpc('find_shareable_user', {
+    p_set_id: setId,
+    p_email: trimmed,
+  });
+  if (!targetId) {
+    return {
+      error:
+        'Nessun utente con questa email tra i membri delle tue chiese. Invitalo prima alla chiesa.',
+    };
   }
-  if (target.id === user.id) return { error: 'Non puoi condividere il set con te stesso' };
+  if (targetId === user.id) return { error: 'Non puoi condividere il set con te stesso' };
 
   const { error } = await supabase
     .from('set_shares')
-    .upsert({ set_id: setId, user_id: target.id, permission });
+    .upsert({ set_id: setId, user_id: targetId, permission });
   if (error) return { error: friendlyError(error, 'Impossibile condividere il set.') };
 
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
