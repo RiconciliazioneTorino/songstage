@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { friendlyError } from '@/lib/errors';
 import { parseOnSong } from '@/lib/onsong';
 
 export async function createSong(
@@ -42,7 +43,7 @@ export async function createSong(
     })
     .select('id')
     .single();
-  if (songErr) return { error: songErr.message };
+  if (songErr) return { error: friendlyError(songErr, 'Impossibile creare la canzone.') };
 
   const { data: version, error: versionErr } = await supabase
     .from('song_versions')
@@ -54,7 +55,7 @@ export async function createSong(
     })
     .select('id')
     .single();
-  if (versionErr) return { error: versionErr.message };
+  if (versionErr) return { error: friendlyError(versionErr, 'Impossibile creare la canzone.') };
 
   await supabase
     .from('songs')
@@ -105,7 +106,7 @@ export async function updateSong(
     })
     .select('id')
     .single();
-  if (versionErr) return { error: versionErr.message };
+  if (versionErr) return { error: friendlyError(versionErr, 'Impossibile salvare la canzone.') };
 
   const { error: songErr } = await supabase
     .from('songs')
@@ -118,7 +119,7 @@ export async function updateSong(
       time_signature: parsed.meta.time ?? null,
     })
     .eq('id', songId);
-  if (songErr) return { error: songErr.message };
+  if (songErr) return { error: friendlyError(songErr, 'Impossibile salvare la canzone.') };
 
   // If the caller transposed the base version, compensate every set_item that
   // uses this song so its projected key stays the same. new_transpose = old - shift.
@@ -172,7 +173,7 @@ export async function addSongAudioLink(
     url: trimmed,
     created_by: user.id,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile aggiungere il link.') };
 
   revalidatePath(`/churches/[slug]/songs/${songId}`, 'page');
   return {};
@@ -181,7 +182,7 @@ export async function addSongAudioLink(
 export async function removeSongAudio(audioId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('audio_attachments').delete().eq('id', audioId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile rimuovere il link.') };
   return {};
 }
 
@@ -197,7 +198,7 @@ export async function deleteSong(
     .from('set_items')
     .select('id', { count: 'exact', head: true })
     .eq('song_id', songId);
-  if (countErr) return { error: countErr.message };
+  if (countErr) return { error: friendlyError(countErr, 'Impossibile eliminare la canzone.') };
   if ((count ?? 0) > 0) {
     return {
       error: `Questa canzone è usata in ${count} set. Rimuovila dai set prima di eliminarla.`,
@@ -209,7 +210,7 @@ export async function deleteSong(
     if (error.code === '23503') {
       return { error: 'Impossibile eliminare: la canzone ha riferimenti attivi.' };
     }
-    return { error: error.message };
+    return { error: friendlyError(error, 'Impossibile eliminare la canzone.') };
   }
 
   revalidatePath(`/churches/${churchSlug}/songs`);
@@ -234,9 +235,25 @@ export async function saveSlideEdit(
       .from('song_variations')
       .update({ body_onsong: trimmed })
       .eq('id', variationId);
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error, 'Impossibile salvare la modifica.') };
     revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
     return {};
+  }
+
+  // A canonical song can sit in a set and be transposed there, but its content
+  // is shared across every church: it's edited in the canonical library, or by
+  // adopting it into the church first.
+  const { data: song } = await supabase
+    .from('songs')
+    .select('church_id')
+    .eq('id', songId)
+    .maybeSingle();
+  if (!song) return { error: 'Canzone non trovata' };
+  if (song.church_id === null) {
+    return {
+      error:
+        'Questa canzone viene dalla libreria canonica: il testo non si modifica da qui. Adottala per la chiesa, oppure creane una variante personale.',
+    };
   }
 
   const { data: lastVersion } = await supabase
@@ -264,7 +281,7 @@ export async function saveSlideEdit(
     })
     .select('id')
     .single();
-  if (versionErr) return { error: versionErr.message };
+  if (versionErr) return { error: friendlyError(versionErr, 'Impossibile salvare la modifica.') };
 
   const { error: songErr } = await supabase
     .from('songs')
@@ -277,7 +294,7 @@ export async function saveSlideEdit(
       time_signature: parsed.meta.time ?? null,
     })
     .eq('id', songId);
-  if (songErr) return { error: songErr.message };
+  if (songErr) return { error: friendlyError(songErr, 'Impossibile salvare la modifica.') };
 
   revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
   return {};
@@ -318,7 +335,7 @@ export async function bulkDeleteSongs(
 
   if (deletable.length > 0) {
     const { error } = await supabase.from('songs').delete().in('id', deletable);
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error, 'Impossibile eliminare le canzoni selezionate.') };
   }
 
   revalidatePath(`/churches/${churchSlug}/songs`);
@@ -351,7 +368,7 @@ export async function setCurrentVersion(
       default_tempo: Number.isFinite(tempo) ? tempo : null,
     })
     .eq('id', songId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile ripristinare questa versione.') };
 
   revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
   return {};

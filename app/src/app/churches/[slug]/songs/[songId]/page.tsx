@@ -19,107 +19,113 @@ export default async function SongPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: song } = await supabase
-    .from('songs')
-    .select('id, title, artist, original_key, default_tempo, current_version_id, church_id, parent_song_id, parent:songs!parent_song_id(id, title)')
-    .eq('id', songId)
-    .maybeSingle();
+  // The song itself and the church we're browsing from are independent reads.
+  const [songRes, contextChurchRes] = await Promise.all([
+    supabase
+      .from('songs')
+      .select('id, title, artist, original_key, default_tempo, current_version_id, church_id, parent_song_id, parent:songs!parent_song_id(id, title)')
+      .eq('id', songId)
+      .maybeSingle(),
+    supabase.from('churches').select('id').eq('slug', slug).maybeSingle(),
+  ]);
+  const song = songRes.data;
   if (!song) notFound();
+  const contextChurch = contextChurchRes.data;
+
   const rawParent = (song as any).parent as
     | { id: string; title: string }
     | { id: string; title: string }[]
     | null;
   const parent = Array.isArray(rawParent) ? (rawParent[0] ?? null) : rawParent;
 
-  const { data: contextChurch } = await supabase
-    .from('churches')
-    .select('id')
-    .eq('slug', slug)
-    .maybeSingle();
-  const contextChurchId =
-    song.church_id ?? contextChurch?.id ?? null;
-
-  const { data: myMembership } = contextChurchId
-    ? await supabase
-        .from('church_members')
-        .select('role')
-        .eq('church_id', contextChurchId)
-        .eq('user_id', user.id)
-        .maybeSingle()
-    : { data: null };
+  const contextChurchId = song.church_id ?? contextChurch?.id ?? null;
   const isSongChurchScoped = song.church_id !== null;
+
+  // Everything below only needs the song id (plus the church id for membership),
+  // so it goes out in one batch instead of a chain of round trips.
+  const [
+    membershipRes,
+    meRes,
+    bodyRes,
+    versionsRes,
+    audiosRes,
+    variationsRes,
+    myBandsRes,
+    adoptedRes,
+  ] = await Promise.all([
+    contextChurchId
+      ? supabase
+          .from('church_members')
+          .select('role')
+          .eq('church_id', contextChurchId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null as { role: string } | null }),
+    supabase.from('users').select('is_curator').eq('id', user.id).maybeSingle(),
+    // The body of the version on display: the pinned one, or the newest.
+    song.current_version_id
+      ? supabase
+          .from('song_versions')
+          .select('body_onsong')
+          .eq('id', song.current_version_id)
+          .maybeSingle()
+      : supabase
+          .from('song_versions')
+          .select('body_onsong')
+          .eq('song_id', songId)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+    supabase
+      .from('song_versions')
+      .select('id, version_number, notes, created_at, created_by:users(display_name, email)')
+      .eq('song_id', songId)
+      .order('version_number', { ascending: false }),
+    supabase
+      .from('audio_attachments')
+      .select('id, kind, url, storage_path')
+      .eq('song_id', songId)
+      .order('created_at'),
+    supabase
+      .from('song_variations')
+      .select('id, name, scope, scope_user_id, scope_band_id, body_onsong, band:bands(id, name)')
+      .eq('song_id', songId),
+    supabase
+      .from('band_members')
+      .select('band_id, band:bands(id, name, church_id)')
+      .eq('user_id', user.id),
+    // A canonical song may already have a copy adopted by the church we're in.
+    !isSongChurchScoped && contextChurch?.id
+      ? supabase
+          .from('songs')
+          .select('id')
+          .eq('church_id', contextChurch.id)
+          .eq('parent_song_id', song.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null as { id: string } | null }),
+  ]);
+
+  const myMembership = membershipRes.data;
   const canEdit =
     isSongChurchScoped &&
     (myMembership?.role === 'admin' || myMembership?.role === 'director');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_curator')
-    .eq('id', user.id)
-    .maybeSingle();
-  const isCurator = !!(me?.is_curator as boolean | null);
+  const isCurator = !!(meRes.data?.is_curator as boolean | null);
   const canPromote = isCurator && isSongChurchScoped && !song.parent_song_id;
 
-  // For canonical songs viewed in a church context: offer adoption if the
-  // viewer manages this church and no copy has been adopted here yet.
-  let canAdopt = false;
-  let adoptedCopyId: string | null = null;
-  if (!isSongChurchScoped && contextChurch?.id) {
-    const canManageChurch =
-      myMembership?.role === 'admin' || myMembership?.role === 'director';
-    const { data: existing } = await supabase
-      .from('songs')
-      .select('id')
-      .eq('church_id', contextChurch.id)
-      .eq('parent_song_id', song.id)
-      .maybeSingle();
-    adoptedCopyId = existing?.id ?? null;
-    canAdopt = canManageChurch && !adoptedCopyId;
-  }
+  const adoptedCopyId = adoptedRes.data?.id ?? null;
+  const canAdopt =
+    !isSongChurchScoped &&
+    !!contextChurch?.id &&
+    !adoptedCopyId &&
+    (myMembership?.role === 'admin' || myMembership?.role === 'director');
 
-  let baseBody = '';
-  if (song.current_version_id) {
-    const { data: version } = await supabase
-      .from('song_versions')
-      .select('body_onsong')
-      .eq('id', song.current_version_id)
-      .maybeSingle();
-    baseBody = version?.body_onsong ?? '';
-  } else {
-    const { data: latest } = await supabase
-      .from('song_versions')
-      .select('body_onsong')
-      .eq('song_id', songId)
-      .order('version_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    baseBody = latest?.body_onsong ?? '';
-  }
+  const baseBody = (bodyRes.data?.body_onsong as string | undefined) ?? '';
+  const versions = versionsRes.data;
 
-  const { data: versions } = await supabase
-    .from('song_versions')
-    .select('id, version_number, notes, created_at, created_by:users(display_name, email)')
-    .eq('song_id', songId)
-    .order('version_number', { ascending: false });
+  const audios = audiosRes.data;
+  const variations = variationsRes.data;
 
-  const { data: audios } = await supabase
-    .from('audio_attachments')
-    .select('id, kind, url, storage_path')
-    .eq('song_id', songId)
-    .order('created_at');
-
-  // Variations visible to me: user-scope (mine) + band-scope (any band I'm in for this church)
-  const { data: variations } = await supabase
-    .from('song_variations')
-    .select('id, name, scope, scope_user_id, scope_band_id, body_onsong, band:bands(id, name)')
-    .eq('song_id', songId);
-
-  const myBandsInChurch = await supabase
-    .from('band_members')
-    .select('band_id, band:bands(id, name, church_id)')
-    .eq('user_id', user.id);
-
-  const myBands = ((myBandsInChurch.data ?? []) as any[])
+  const myBands = ((myBandsRes.data ?? []) as any[])
     .filter((bm) => bm.band?.church_id === song.church_id)
     .map((bm) => ({ id: bm.band.id as string, name: bm.band.name as string }));
   const myBandIds = new Set(myBands.map((b) => b.id));

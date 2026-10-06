@@ -21,6 +21,11 @@ html, body {
 .pair .lyric { line-height: 1.2; }
 .pair.chord-only { margin-right: 0.6em; }
 .pair.chord-only:last-child { margin-right: 0; }
+.no-chords .chord { display: none; }
+/* An instrumental line is nothing but chords — collapse it instead of
+   leaving a run of blank space in the lyrics-only view. */
+.no-chords .pair.chord-only { display: none; }
+
 .section-label {
   color: var(--section-color);
   font-weight: bold;

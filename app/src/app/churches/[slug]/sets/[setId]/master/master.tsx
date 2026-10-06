@@ -46,6 +46,9 @@ export type Slide = {
   originalKey: string | null;
   songTempo: number | null;
   songTimeSignature: string | null;
+  /** Canonical songs are shared across churches: key/transpose is per-set and
+   *  editable, the lyrics and chords are not. */
+  isCanonical: boolean;
   transpose: number;
   body: string;
   baseBody: string;
@@ -55,7 +58,12 @@ export type Slide = {
 
 export type ProjectionState = {
   index: number;
-  transposeOverride: number;
+  /**
+   * Absolute semitones for the slide at `index`, as the leader sees it — not a
+   * delta against the stored value. A follower that loaded the set after the
+   * leader had already transposed would otherwise add the shift twice.
+   */
+  transpose: number;
   fontScale: number;
   showChords: boolean;
   scrollFraction: number;
@@ -66,6 +74,7 @@ export type AvailableSong = {
   title: string;
   artist: string | null;
   original_key: string | null;
+  isCanonical: boolean;
 };
 
 export function Master({
@@ -105,6 +114,8 @@ export function Master({
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [role, setRole] = useState<'connecting' | 'master' | 'viewer'>('connecting');
+  // Absolute transpose pushed by the leader; null until the first state frame.
+  const [followerTranspose, setFollowerTranspose] = useState<number | null>(null);
   const [activeMasterEmail, setActiveMasterEmail] = useState<string | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<
     { userId: string; email: string; expiresAt: number } | null
@@ -137,16 +148,11 @@ export function Master({
   const scrollFractionRef = useRef(0);
   const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const initialTransposeRef = useRef<Record<string, number>>(
-    Object.fromEntries(slides.map((s) => [s.itemId, s.transpose]))
-  );
 
   useEffect(() => setSlidesLocal(slides), [slides]);
 
   const currentSlide = slidesLocal[index];
-  const transposeOverride = currentSlide
-    ? currentSlide.transpose - (initialTransposeRef.current[currentSlide.itemId] ?? 0)
-    : 0;
+  const currentTranspose = currentSlide?.transpose ?? 0;
 
   function persistTranspose(itemId: string, value: number) {
     if (saveTimers.current[itemId]) clearTimeout(saveTimers.current[itemId]);
@@ -181,10 +187,10 @@ export function Master({
     });
   }
 
-  const stateRef = useRef({ index, transposeOverride, fontScale, showChords });
+  const stateRef = useRef({ index, transpose: currentTranspose, fontScale, showChords });
   useEffect(() => {
-    stateRef.current = { index, transposeOverride, fontScale, showChords };
-  }, [index, transposeOverride, fontScale, showChords]);
+    stateRef.current = { index, transpose: currentTranspose, fontScale, showChords };
+  }, [index, currentTranspose, fontScale, showChords]);
 
   const metronomeStateRef = useRef<MetronomeUpdate>({
     running: metronomeRunning,
@@ -308,6 +314,28 @@ export function Master({
     };
   }, []);
 
+  // The print tree re-parses and re-renders every slide, so it's only mounted
+  // while an export is in flight — this effect runs once it's in the DOM.
+  useEffect(() => {
+    if (!exportingPdf) return;
+    const el = printRef.current;
+    if (!el) return;
+    let active = true;
+    (async () => {
+      try {
+        await exportElementToPdf(
+          el,
+          `${setName.replace(/[^a-z0-9]+/gi, '-') || 'scaletta'}.pdf`
+        );
+      } finally {
+        if (active) setExportingPdf(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [exportingPdf, setName]);
+
   // countdown ticker for request timeouts
   useEffect(() => {
     if (!incomingRequest && !pendingRequest) return;
@@ -362,20 +390,27 @@ export function Master({
     // viewer applies incoming state so its UI mirrors the master
     channel.on('broadcast', { event: 'state' }, ({ payload }) => {
       if (roleRef.current !== 'viewer') return;
-      const p = payload as {
-        index: number;
-        fontScale: number;
-        showChords: boolean;
-        scrollFraction: number;
-      };
+      const p = payload as ProjectionState;
       setIndex(p.index);
       setFontScale(p.fontScale);
       setShowChords(p.showChords);
+      if (typeof p.transpose === 'number') setFollowerTranspose(p.transpose);
       const el = scrollRef.current;
       if (el) {
         const max = el.scrollHeight - el.clientHeight;
         if (max > 0) el.scrollTop = p.scrollFraction * max;
       }
+    });
+
+    // The leader edited the lyrics or switched variation in place. The
+    // projector listens for this too; viewers on this page need it as well or
+    // they keep reading the version they loaded with.
+    channel.on('broadcast', { event: 'slide_update' }, ({ payload }) => {
+      if (roleRef.current === 'master') return;
+      const { itemId, body } = payload as { itemId: string; body: string };
+      setSlidesLocal((prev) =>
+        prev.map((s) => (s.itemId === itemId ? { ...s, body } : s))
+      );
     });
 
     channel.on('broadcast', { event: 'lead_request' }, ({ payload }) => {
@@ -402,7 +437,11 @@ export function Master({
         email: currentUserEmail,
         joinedAt: Date.now(),
       });
+      setFollowerTranspose(null);
       setRole('master');
+      // Re-read the set so our own transposes start from what's stored, not
+      // from whatever the previous leader had broadcast.
+      router.refresh();
     });
 
     channel.on('broadcast', { event: 'lead_deny' }, ({ payload }) => {
@@ -499,6 +538,7 @@ export function Master({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setId]);
 
+  // Moving to another song starts it from the top.
   useEffect(() => {
     if (roleRef.current !== 'master') return;
     const ch = channelRef.current;
@@ -508,9 +548,36 @@ export function Master({
     ch.send({
       type: 'broadcast',
       event: 'state',
-      payload: { index, transposeOverride, fontScale, showChords, scrollFraction: 0 },
+      payload: {
+        index,
+        transpose: currentTranspose,
+        fontScale,
+        showChords,
+        scrollFraction: 0,
+      },
     });
-  }, [index, transposeOverride, fontScale, showChords]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
+  // Transpose, font size and chord visibility are adjusted mid-song: push them
+  // out without moving anyone's scroll position.
+  useEffect(() => {
+    if (roleRef.current !== 'master') return;
+    const ch = channelRef.current;
+    if (!ch) return;
+    ch.send({
+      type: 'broadcast',
+      event: 'state',
+      payload: {
+        index,
+        transpose: currentTranspose,
+        fontScale,
+        showChords,
+        scrollFraction: scrollFractionRef.current,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTranspose, fontScale, showChords]);
 
   function onContentScroll() {
     if (roleRef.current !== 'master') return;
@@ -529,7 +596,7 @@ export function Master({
         event: 'state',
         payload: {
           index,
-          transposeOverride,
+          transpose: currentTranspose,
           fontScale,
           showChords,
           scrollFraction: scrollFractionRef.current,
@@ -649,7 +716,9 @@ export function Master({
     const ch = channelRef.current;
     if (!ch) return;
     ch.track({ role: 'master', email: currentUserEmail, joinedAt: Date.now() });
+    setFollowerTranspose(null);
     setRole('master');
+    router.refresh();
   }
 
   function grantLead() {
@@ -697,7 +766,8 @@ export function Master({
 
   const slide = currentSlide;
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
-  const totalSemitones = slide?.transpose ?? 0;
+  const totalSemitones =
+    isViewer && followerTranspose !== null ? followerTranspose : slide?.transpose ?? 0;
 
   const projectorUrl = `/churches/${slug}/sets/${setId}/projector`;
 
@@ -904,17 +974,27 @@ export function Master({
           +
         </button>
 
-        <button
-          onClick={() => {
-            setEditBody(slide.body);
-            setEditError(null);
-            setEditing(true);
-          }}
-          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
-          title="Modifica testo canzone"
-        >
-          ✎
-        </button>
+        {slide.isCanonical && !slide.variationId ? (
+          <span
+            className="min-w-[2.25rem] h-9 rounded-full border border-border text-lg leading-none flex items-center justify-center opacity-40 cursor-not-allowed"
+            title="Canzone canonica: la tonalità si cambia qui, il testo si modifica nella libreria o adottandola per la chiesa"
+            aria-disabled
+          >
+            ✎
+          </span>
+        ) : (
+          <button
+            onClick={() => {
+              setEditBody(slide.body);
+              setEditError(null);
+              setEditing(true);
+            }}
+            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
+            title="Modifica testo canzone"
+          >
+            ✎
+          </button>
+        )}
 
         </div>
 
@@ -1017,18 +1097,7 @@ export function Master({
         <button
           type="button"
           disabled={exportingPdf}
-          onClick={async () => {
-            if (!printRef.current) return;
-            setExportingPdf(true);
-            try {
-              await exportElementToPdf(
-                printRef.current,
-                `${setName.replace(/[^a-z0-9]+/gi, '-') || 'scaletta'}.pdf`
-              );
-            } finally {
-              setExportingPdf(false);
-            }
-          }}
+          onClick={() => setExportingPdf(true)}
           className="h-9 px-2 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
           title="Scarica la scaletta in PDF (fondo bianco, accordi rossi, sezioni verdi)"
         >
@@ -1369,6 +1438,14 @@ export function Master({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      {s.isCanonical && (
+                        <span
+                          title="Dalla libreria canonica"
+                          className="text-[10px] uppercase tracking-wide text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border"
+                        >
+                          Canonica
+                        </span>
+                      )}
                       {s.original_key && (
                         <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
                           {s.original_key}
@@ -1386,21 +1463,23 @@ export function Master({
         </div>
       )}
 
-      <div ref={printRef} className="print-only" aria-hidden>
-        {slidesLocal.map((s) => {
-          const parsed = parseOnSong(s.body);
-          return (
-            <div key={s.itemId} className="print-page">
-              <SongView
-                song={parsed}
-                semitones={s.transpose}
-                fontScale={1}
-                showChords
-              />
-            </div>
-          );
-        })}
-      </div>
+      {exportingPdf && (
+        <div ref={printRef} className="print-only" aria-hidden>
+          {slidesLocal.map((s) => {
+            const parsed = parseOnSong(s.body);
+            return (
+              <div key={s.itemId} className="print-page">
+                <SongView
+                  song={parsed}
+                  semitones={s.transpose}
+                  fontScale={1}
+                  showChords
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }

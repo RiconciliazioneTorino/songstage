@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { friendlyError } from '@/lib/errors';
 
 export async function createBand(
   churchSlug: string,
@@ -25,7 +26,7 @@ export async function createBand(
   const { error } = await supabase
     .from('bands')
     .insert({ church_id: church.id, name });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile creare il gruppo.') };
 
   revalidatePath(`/churches/${churchSlug}`);
   return {};
@@ -37,7 +38,7 @@ export async function deleteBand(
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('bands').delete().eq('id', bandId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile eliminare il gruppo.') };
 
   revalidatePath(`/churches/${churchSlug}`);
   redirect(`/churches/${churchSlug}`);
@@ -53,7 +54,7 @@ export async function addBandMember(
     .insert({ band_id: bandId, user_id: userId });
   if (error) {
     if (error.code === '23505') return { error: 'È già membro del gruppo' };
-    return { error: error.message };
+    return { error: friendlyError(error, 'Impossibile aggiungere il membro al gruppo.') };
   }
   revalidatePath(`/churches/[slug]/bands/${bandId}`, 'page');
   return {};
@@ -69,7 +70,7 @@ export async function removeBandMember(
     .delete()
     .eq('band_id', bandId)
     .eq('user_id', userId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile rimuovere il membro dal gruppo.') };
   revalidatePath(`/churches/[slug]/bands/${bandId}`, 'page');
   return {};
 }

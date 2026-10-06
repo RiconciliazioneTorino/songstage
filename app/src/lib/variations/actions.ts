@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { friendlyError } from '@/lib/errors';
 
 async function getCurrentBody(songId: string): Promise<string> {
   const supabase = await createClient();
@@ -53,7 +54,7 @@ export async function createUserVariation(
     })
     .select('id')
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile creare la variante.') };
 
   revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
   return { variationId: data.id };
@@ -91,7 +92,7 @@ export async function createBandVariation(
     })
     .select('id')
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile creare la variante del gruppo.') };
 
   revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
   return { variationId: data.id };
@@ -113,7 +114,7 @@ export async function updateVariation(
     .from('song_variations')
     .update(clean)
     .eq('id', variationId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile salvare la variante.') };
 
   return {};
 }
@@ -136,7 +137,7 @@ export async function deleteVariation(
   }
 
   const { error } = await supabase.from('song_variations').delete().eq('id', variationId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile eliminare la variante.') };
 
   revalidatePath(`/churches/${churchSlug}/songs/${songId}`);
   redirect(`/churches/${churchSlug}/songs/${songId}`);

@@ -6,10 +6,14 @@ import { createClient } from '@/lib/supabase/client';
 import type { Slide, ProjectionState } from '../master/master';
 
 export function Projector({ setId, slides }: { setId: string; slides: Slide[] }) {
-  const [state, setState] = useState<ProjectionState>({
+  // `transpose: null` means "no leader has spoken yet" — fall back to the key
+  // stored on the set item.
+  const [state, setState] = useState<Omit<ProjectionState, 'transpose'> & {
+    transpose: number | null;
+  }>({
     index: 0,
-    transposeOverride: 0,
-    fontScale: 1.4,
+    transpose: null,
+    fontScale: 1,
     showChords: true,
     scrollFraction: 0,
   });
@@ -56,7 +60,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
 
   const slide = slidesLocal[state.index];
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
-  const totalSemitones = (slide?.transpose ?? 0) + state.transposeOverride;
+  const totalSemitones = state.transpose ?? slide?.transpose ?? 0;
 
   if (!slide) {
     return (

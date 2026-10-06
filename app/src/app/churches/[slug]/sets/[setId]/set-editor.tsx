@@ -4,7 +4,13 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addSongToSet, moveSetItem, removeSetItem, updateSetItem } from '@/lib/sets/actions';
 
-type Song = { id: string; title: string; artist: string | null; original_key: string | null };
+type Song = {
+  id: string;
+  title: string;
+  artist: string | null;
+  original_key: string | null;
+  isCanonical?: boolean;
+};
 type Variation = {
   id: string;
   name: string;
@@ -19,6 +25,7 @@ type Item = {
   variation_id: string | null;
   performance_notes: string | null;
   song: Song;
+  isCanonical: boolean;
   availableVariations: Variation[];
 };
 
@@ -37,9 +44,15 @@ export function SetEditor({
   const [pickerQuery, setPickerQuery] = useState('');
 
   const inSet = new Set(initialItems.map((i) => i.song.id));
+  const query = pickerQuery.trim().toLowerCase();
   const filtered = availableSongs
     .filter((s) => !inSet.has(s.id))
-    .filter((s) => s.title.toLowerCase().includes(pickerQuery.toLowerCase()));
+    .filter(
+      (s) =>
+        !query ||
+        s.title.toLowerCase().includes(query) ||
+        (s.artist ?? '').toLowerCase().includes(query)
+    );
 
   function refresh() {
     startTransition(() => router.refresh());
@@ -60,6 +73,7 @@ export function SetEditor({
                   <div className="text-xs text-zinc-500 truncate">
                     {item.song.original_key ? `Orig: ${item.song.original_key}` : ''}
                     {item.song.artist ? ` · ${item.song.artist}` : ''}
+                    {item.isCanonical ? ' · canonica' : ''}
                   </div>
                 </div>
                 <VariationPicker
@@ -155,11 +169,21 @@ export function SetEditor({
                     <div className="text-sm">{s.title}</div>
                     {s.artist && <div className="text-xs text-zinc-500">{s.artist}</div>}
                   </div>
-                  {s.original_key && (
-                    <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
-                      {s.original_key}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {s.isCanonical && (
+                      <span
+                        title="Dalla libreria canonica"
+                        className="text-[10px] uppercase tracking-wide text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border"
+                      >
+                        Canonica
+                      </span>
+                    )}
+                    {s.original_key && (
+                      <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
+                        {s.original_key}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))
             )}

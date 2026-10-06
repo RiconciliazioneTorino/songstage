@@ -12,88 +12,74 @@ export default async function MasterPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // One read covers both the set itself and the live-master indicator.
   const { data: set } = await supabase
     .from('sets')
-    .select('id, name, church_id')
+    .select('id, name, church_id, active_master_user_id, active_master_heartbeat_at')
     .eq('id', setId)
     .maybeSingle();
   if (!set) notFound();
 
-  const [{ data: isOwnerOrLead }, { data: canWriteShared }] = await Promise.all([
-    supabase.rpc('set_owner_or_church_lead', { p_set_id: setId }),
-    supabase.rpc('can_write_set_shared', { p_set_id: setId }),
-  ]);
-  const canBeMaster = !!isOwnerOrLead || !!canWriteShared;
-
-  const { data: liveState } = await supabase
-    .from('sets')
-    .select('active_master_user_id, active_master_heartbeat_at')
-    .eq('id', setId)
-    .maybeSingle();
-  const liveMasterUserId = (liveState?.active_master_user_id as string | null) ?? null;
-  const liveMasterHeartbeat = liveState?.active_master_heartbeat_at
-    ? new Date(liveState.active_master_heartbeat_at).getTime()
+  const liveMasterUserId = (set.active_master_user_id as string | null) ?? null;
+  const liveMasterHeartbeat = set.active_master_heartbeat_at
+    ? new Date(set.active_master_heartbeat_at).getTime()
     : 0;
 
-  const { data: availableSongs } = await supabase
-    .from('songs')
-    .select('id, title, artist, original_key')
-    .eq('church_id', set.church_id)
-    .order('title');
-
-  const { data: items } = await supabase
-    .from('set_items')
-    .select(
-      'id, position, transpose_semitones, capo, variation_id, song:songs(id, title, artist, original_key, current_version_id, default_tempo, time_signature)'
-    )
-    .eq('set_id', setId)
-    .order('position');
+  // Permissions, the song picker and the set contents are independent.
+  const [{ data: isOwnerOrLead }, { data: canWriteShared }, { data: availableSongs }, { data: items }] =
+    await Promise.all([
+      supabase.rpc('set_owner_or_church_lead', { p_set_id: setId }),
+      supabase.rpc('can_write_set_shared', { p_set_id: setId }),
+      supabase
+        .from('songs')
+        .select('id, title, artist, original_key, church_id')
+        .or(`church_id.eq.${set.church_id},church_id.is.null`)
+        .order('title'),
+      supabase
+        .from('set_items')
+        .select(
+          'id, position, transpose_semitones, capo, variation_id, song:songs(id, title, artist, original_key, current_version_id, default_tempo, time_signature, church_id)'
+        )
+        .eq('set_id', setId)
+        .order('position'),
+    ]);
+  const canBeMaster = !!isOwnerOrLead || !!canWriteShared;
 
   const itemList = (items ?? []) as any[];
   const versionIds = itemList
     .map((i) => i.song?.current_version_id)
     .filter((v): v is string => !!v);
-  const variationIds = itemList
-    .map((i) => i.variation_id)
-    .filter((v): v is string => !!v);
+  const songIds = itemList.map((i) => i.song?.id).filter(Boolean);
+
+  // Current bodies and every variation the user can see for these songs, so the
+  // leader can switch variation without another round trip.
+  const [versionsRes, allVarsRes] = await Promise.all([
+    versionIds.length > 0
+      ? supabase.from('song_versions').select('id, body_onsong').in('id', versionIds)
+      : Promise.resolve({ data: [] as any[] }),
+    songIds.length > 0
+      ? supabase
+          .from('song_variations')
+          .select('id, song_id, name, scope, body_onsong, band:bands(name)')
+          .in('song_id', songIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const versionsById = new Map<string, string>();
-  if (versionIds.length > 0) {
-    const { data: versions } = await supabase
-      .from('song_versions')
-      .select('id, body_onsong')
-      .in('id', versionIds);
-    (versions ?? []).forEach((v) => versionsById.set(v.id, v.body_onsong));
-  }
-  const variationsById = new Map<string, string>();
-  if (variationIds.length > 0) {
-    const { data: variations } = await supabase
-      .from('song_variations')
-      .select('id, body_onsong')
-      .in('id', variationIds);
-    (variations ?? []).forEach((v) => variationsById.set(v.id, v.body_onsong));
-  }
+  for (const v of versionsRes.data ?? []) versionsById.set(v.id, v.body_onsong);
 
-  // All variations visible for the songs in this set, so the master can switch.
-  const songIds = itemList.map((i) => i.song?.id).filter(Boolean);
   const variationsBySong = new Map<string, any[]>();
-  const allVariationBodiesById = new Map<string, string>();
-  if (songIds.length > 0) {
-    const { data: allVars } = await supabase
-      .from('song_variations')
-      .select('id, song_id, name, scope, body_onsong, band:bands(name)')
-      .in('song_id', songIds);
-    for (const v of allVars ?? []) {
-      const list = variationsBySong.get(v.song_id) ?? [];
-      list.push({
-        id: v.id,
-        name: v.name,
-        scope: v.scope,
-        bandName: (v as any).band?.name ?? null,
-      });
-      variationsBySong.set(v.song_id, list);
-      allVariationBodiesById.set(v.id, v.body_onsong);
-    }
+  const variationBodiesById = new Map<string, string>();
+  for (const v of (allVarsRes.data ?? []) as any[]) {
+    const list = variationsBySong.get(v.song_id) ?? [];
+    list.push({
+      id: v.id,
+      name: v.name,
+      scope: v.scope,
+      bandName: v.band?.name ?? null,
+    });
+    variationsBySong.set(v.song_id, list);
+    variationBodiesById.set(v.id, v.body_onsong);
   }
 
   const slides = itemList.map((i) => ({
@@ -105,17 +91,18 @@ export default async function MasterPage({
     originalKey: i.song.original_key as string | null,
     songTempo: (i.song.default_tempo as number | null) ?? null,
     songTimeSignature: (i.song.time_signature as string | null) ?? null,
+    isCanonical: i.song.church_id === null,
     transpose: i.transpose_semitones as number,
     baseBody: versionsById.get(i.song.current_version_id ?? '') ?? '',
     body:
-      (i.variation_id ? allVariationBodiesById.get(i.variation_id) ?? variationsById.get(i.variation_id) : null) ??
+      (i.variation_id ? variationBodiesById.get(i.variation_id) : null) ??
       versionsById.get(i.song.current_version_id ?? '') ??
       '',
     availableVariations: variationsBySong.get(i.song.id) ?? [],
     variationBodies: Object.fromEntries(
       (variationsBySong.get(i.song.id) ?? []).map((v) => [
         v.id,
-        allVariationBodiesById.get(v.id) ?? '',
+        variationBodiesById.get(v.id) ?? '',
       ])
     ),
   }));
@@ -126,7 +113,13 @@ export default async function MasterPage({
       setName={set.name}
       slug={slug}
       slides={slides}
-      availableSongs={(availableSongs as any) ?? []}
+      availableSongs={(availableSongs ?? []).map((s) => ({
+        id: s.id as string,
+        title: s.title as string,
+        artist: s.artist as string | null,
+        original_key: s.original_key as string | null,
+        isCanonical: s.church_id === null,
+      }))}
       currentUserId={user.id}
       currentUserEmail={user.email ?? ''}
       canBeMaster={canBeMaster}

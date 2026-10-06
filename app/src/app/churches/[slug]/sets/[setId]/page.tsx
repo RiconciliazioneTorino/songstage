@@ -15,44 +15,67 @@ export default async function SetDetailPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: church } = await supabase
-    .from('churches')
-    .select('id, name, slug')
-    .eq('slug', slug)
-    .maybeSingle();
-  if (!church) notFound();
+  const [churchRes, setRes] = await Promise.all([
+    supabase.from('churches').select('id, name, slug').eq('slug', slug).maybeSingle(),
+    supabase
+      .from('sets')
+      .select('id, name, event_date, event_type, notes')
+      .eq('id', setId)
+      .maybeSingle(),
+  ]);
+  const church = churchRes.data;
+  const set = setRes.data;
+  if (!church || !set) notFound();
 
-  const { data: set } = await supabase
-    .from('sets')
-    .select('id, name, event_date, event_type, notes')
-    .eq('id', setId)
-    .maybeSingle();
-  if (!set) notFound();
+  // Contents, picker and sharing panels are independent of each other.
+  const [itemsRes, songsRes, sharesRes, bandSharesRes, churchBandsRes] = await Promise.all([
+    supabase
+      .from('set_items')
+      .select(
+        'id, position, transpose_semitones, capo, variation_id, performance_notes, song:songs(id, title, artist, original_key, church_id)'
+      )
+      .eq('set_id', setId)
+      .order('position'),
+    supabase
+      .from('songs')
+      .select('id, title, artist, original_key, church_id')
+      .or(`church_id.eq.${church.id},church_id.is.null`)
+      .order('title'),
+    supabase
+      .from('set_shares')
+      .select('user_id, permission, user:users(email, display_name)')
+      .eq('set_id', setId),
+    supabase
+      .from('set_band_shares')
+      .select('band_id, permission, band:bands(id, name)')
+      .eq('set_id', setId),
+    supabase.from('bands').select('id, name').eq('church_id', church.id).order('name'),
+  ]);
 
-  const { data: items } = await supabase
-    .from('set_items')
-    .select('id, position, transpose_semitones, capo, variation_id, performance_notes, song:songs(id, title, artist, original_key)')
-    .eq('set_id', setId)
-    .order('position');
-
-  const { data: songs } = await supabase
-    .from('songs')
-    .select('id, title, artist, original_key')
-    .eq('church_id', church.id)
-    .order('title');
+  const items = itemsRes.data;
+  const shares = sharesRes.data;
+  const bandShares = bandSharesRes.data;
+  const churchBands = churchBandsRes.data;
+  const songs = (songsRes.data ?? []).map((s: any) => ({
+    id: s.id as string,
+    title: s.title as string,
+    artist: s.artist as string | null,
+    original_key: s.original_key as string | null,
+    isCanonical: s.church_id === null,
+  }));
 
   // Variations visible to the user for the songs in this set
   const songIds = (items ?? []).map((i: any) => i.song?.id).filter(Boolean);
-  let visibleVariations: any[] = [];
-  if (songIds.length > 0) {
-    const { data: vars } = await supabase
-      .from('song_variations')
-      .select('id, song_id, name, scope, scope_user_id, scope_band_id, band:bands(name)')
-      .in('song_id', songIds);
-    visibleVariations = vars ?? [];
-  }
+  const { data: vars } =
+    songIds.length > 0
+      ? await supabase
+          .from('song_variations')
+          .select('id, song_id, name, scope, scope_user_id, scope_band_id, band:bands(name)')
+          .in('song_id', songIds)
+      : { data: [] as any[] };
+
   const variationsBySong = new Map<string, any[]>();
-  for (const v of visibleVariations) {
+  for (const v of vars ?? []) {
     const list = variationsBySong.get(v.song_id) ?? [];
     list.push(v);
     variationsBySong.set(v.song_id, list);
@@ -60,24 +83,9 @@ export default async function SetDetailPage({
   // Attach variations to items
   const itemsWithVariations = ((items as any[]) ?? []).map((i) => ({
     ...i,
+    isCanonical: i.song?.church_id === null,
     availableVariations: variationsBySong.get(i.song?.id) ?? [],
   }));
-
-  const { data: shares } = await supabase
-    .from('set_shares')
-    .select('user_id, permission, user:users(email, display_name)')
-    .eq('set_id', setId);
-
-  const { data: bandShares } = await supabase
-    .from('set_band_shares')
-    .select('band_id, permission, band:bands(id, name)')
-    .eq('set_id', setId);
-
-  const { data: churchBands } = await supabase
-    .from('bands')
-    .select('id, name')
-    .eq('church_id', church.id)
-    .order('name');
 
   return (
     <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
@@ -91,7 +99,7 @@ export default async function SetDetailPage({
       <SetEditor
         setId={set.id}
         items={itemsWithVariations as any}
-        availableSongs={(songs as any) ?? []}
+        availableSongs={songs}
       />
 
       <SharePanel

@@ -23,7 +23,10 @@ export function AddMemberForm({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [role, setRole] = useState<Role>('musico');
   const [pending, startTransition] = useTransition();
-  const [banner, setBanner] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
+  const [banner, setBanner] = useState<{
+    kind: 'info' | 'warn' | 'error';
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +58,18 @@ export function AddMemberForm({
       if (res.error) setBanner({ kind: 'error', text: res.error });
       else if (res.added)
         setBanner({ kind: 'info', text: 'Utente esistente aggiunto direttamente.' });
-      else setBanner({ kind: 'info', text: 'Invito creato — sarà aggiunto al primo accesso.' });
+      else if (res.emailSent === false)
+        setBanner({
+          kind: 'warn',
+          text: `Invito creato, ma l'email NON è stata inviata${
+            res.emailError ? ` (${res.emailError})` : ''
+          }. Avvisa tu la persona: sarà aggiunta al primo accesso.`,
+        });
+      else
+        setBanner({
+          kind: 'info',
+          text: 'Invito creato ed email inviata — sarà aggiunto al primo accesso.',
+        });
       setQuery('');
     });
   }
@@ -125,7 +139,11 @@ export function AddMemberForm({
       {banner && (
         <p
           className={`text-xs ${
-            banner.kind === 'error' ? 'text-red-400' : 'text-accent'
+            banner.kind === 'error'
+              ? 'text-red-400'
+              : banner.kind === 'warn'
+                ? 'text-amber-300'
+                : 'text-accent'
           }`}
         >
           {banner.text}

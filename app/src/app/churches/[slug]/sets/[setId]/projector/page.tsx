@@ -19,7 +19,7 @@ export default async function ProjectorPage({
   const { data: items } = await supabase
     .from('set_items')
     .select(
-      'id, position, transpose_semitones, capo, variation_id, song:songs(id, title, artist, original_key, current_version_id)'
+      'id, position, transpose_semitones, capo, variation_id, song:songs(id, title, artist, original_key, current_version_id, church_id)'
     )
     .eq('set_id', setId)
     .order('position');
@@ -32,22 +32,19 @@ export default async function ProjectorPage({
     .map((i) => i.variation_id)
     .filter((v): v is string => !!v);
 
+  const [versionsRes, variationsRes] = await Promise.all([
+    versionIds.length > 0
+      ? supabase.from('song_versions').select('id, body_onsong').in('id', versionIds)
+      : Promise.resolve({ data: [] as any[] }),
+    variationIds.length > 0
+      ? supabase.from('song_variations').select('id, body_onsong').in('id', variationIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
   const versionsById = new Map<string, string>();
-  if (versionIds.length > 0) {
-    const { data: versions } = await supabase
-      .from('song_versions')
-      .select('id, body_onsong')
-      .in('id', versionIds);
-    (versions ?? []).forEach((v) => versionsById.set(v.id, v.body_onsong));
-  }
+  for (const v of versionsRes.data ?? []) versionsById.set(v.id, v.body_onsong);
   const variationsById = new Map<string, string>();
-  if (variationIds.length > 0) {
-    const { data: variations } = await supabase
-      .from('song_variations')
-      .select('id, body_onsong')
-      .in('id', variationIds);
-    (variations ?? []).forEach((v) => variationsById.set(v.id, v.body_onsong));
-  }
+  for (const v of variationsRes.data ?? []) variationsById.set(v.id, v.body_onsong);
 
   const slides: Slide[] = itemList.map((i) => ({
     itemId: i.id as string,
@@ -58,6 +55,7 @@ export default async function ProjectorPage({
     originalKey: i.song.original_key as string | null,
     songTempo: null,
     songTimeSignature: null,
+    isCanonical: i.song.church_id === null,
     transpose: i.transpose_semitones as number,
     baseBody: '',
     availableVariations: [],

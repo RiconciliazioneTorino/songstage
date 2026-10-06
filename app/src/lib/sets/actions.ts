@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { friendlyError } from '@/lib/errors';
 
 export async function createSet(
   churchSlug: string,
@@ -35,7 +36,7 @@ export async function createSet(
     })
     .select('id')
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile creare il set.') };
 
   revalidatePath(`/churches/${churchSlug}/sets`);
   redirect(`/churches/${churchSlug}/sets/${set.id}`);
@@ -66,7 +67,7 @@ export async function createSetFromSongs(
     .insert({ church_id: church.id, name: cleanName, created_by: user.id })
     .select('id')
     .single();
-  if (setErr) return { error: setErr.message };
+  if (setErr) return { error: friendlyError(setErr, 'Impossibile creare il set.') };
 
   const rows = songIds.map((songId, i) => ({
     set_id: set.id,
@@ -74,7 +75,7 @@ export async function createSetFromSongs(
     position: i + 1,
   }));
   const { error: itemsErr } = await supabase.from('set_items').insert(rows);
-  if (itemsErr) return { error: itemsErr.message };
+  if (itemsErr) return { error: friendlyError(itemsErr, 'Impossibile creare il set.') };
 
   revalidatePath(`/churches/${churchSlug}/sets`);
   return { setId: set.id };
@@ -136,7 +137,7 @@ export async function addSongToSet(
       position: nextPosition,
       variation_id: variationId,
     });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile aggiungere la canzone al set.') };
 
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
@@ -145,7 +146,7 @@ export async function addSongToSet(
 export async function removeSetItem(itemId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('set_items').delete().eq('id', itemId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile rimuovere la canzone dal set.') };
   return {};
 }
 
@@ -199,7 +200,7 @@ export async function updateSet(
   if (patch.notes !== undefined) cleanPatch.notes = patch.notes?.trim() || null;
 
   const { error } = await supabase.from('sets').update(cleanPatch).eq('id', setId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile salvare il set.') };
 
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
@@ -211,7 +212,7 @@ export async function deleteSet(
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('sets').delete().eq('id', setId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile eliminare il set.') };
 
   revalidatePath(`/churches/${churchSlug}/sets`);
   redirect(`/churches/${churchSlug}/sets`);
@@ -240,7 +241,7 @@ export async function shareSet(
   const { error } = await supabase
     .from('set_shares')
     .upsert({ set_id: setId, user_id: target.id, permission });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile condividere il set.') };
 
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
@@ -256,7 +257,7 @@ export async function unshareSet(
     .delete()
     .eq('set_id', setId)
     .eq('user_id', userId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile rimuovere la condivisione.') };
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
 }
@@ -270,7 +271,7 @@ export async function shareSetWithBand(
   const { error } = await supabase
     .from('set_band_shares')
     .upsert({ set_id: setId, band_id: bandId, permission });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile condividere il set con il gruppo.') };
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
 }
@@ -285,7 +286,7 @@ export async function unshareSetWithBand(
     .delete()
     .eq('set_id', setId)
     .eq('band_id', bandId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile rimuovere la condivisione.') };
   revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
 }
@@ -311,6 +312,6 @@ export async function updateSetItem(
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('set_items').update(patch).eq('id', itemId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile salvare la modifica.') };
   return {};
 }

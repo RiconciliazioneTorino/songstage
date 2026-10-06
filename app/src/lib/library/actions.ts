@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { friendlyError } from '@/lib/errors';
 import { parseOnSong } from '@/lib/onsong';
 
 export async function promoteSongToCanonical(
@@ -61,7 +62,7 @@ export async function promoteSongToCanonical(
     })
     .select('id')
     .single();
-  if (insErr) return { error: insErr.message };
+  if (insErr) return { error: friendlyError(insErr, 'Impossibile promuovere la canzone.') };
 
   const { data: version, error: vErr } = await supabase
     .from('song_versions')
@@ -74,7 +75,7 @@ export async function promoteSongToCanonical(
     })
     .select('id')
     .single();
-  if (vErr) return { error: vErr.message };
+  if (vErr) return { error: friendlyError(vErr, 'Impossibile promuovere la canzone.') };
 
   await supabase
     .from('songs')
@@ -121,7 +122,7 @@ export async function createCanonicalSong(
     })
     .select('id')
     .single();
-  if (songErr) return { error: songErr.message };
+  if (songErr) return { error: friendlyError(songErr, 'Impossibile creare la canzone canonica.') };
 
   const { data: version, error: versionErr } = await supabase
     .from('song_versions')
@@ -133,7 +134,7 @@ export async function createCanonicalSong(
     })
     .select('id')
     .single();
-  if (versionErr) return { error: versionErr.message };
+  if (versionErr) return { error: friendlyError(versionErr, 'Impossibile creare la canzone canonica.') };
 
   await supabase
     .from('songs')
@@ -183,7 +184,7 @@ export async function updateCanonicalSong(
     })
     .select('id')
     .single();
-  if (versionErr) return { error: versionErr.message };
+  if (versionErr) return { error: friendlyError(versionErr, 'Impossibile salvare la canzone canonica.') };
 
   const { error: songErr } = await supabase
     .from('songs')
@@ -196,7 +197,7 @@ export async function updateCanonicalSong(
       time_signature: parsed.meta.time ?? null,
     })
     .eq('id', songId);
-  if (songErr) return { error: songErr.message };
+  if (songErr) return { error: friendlyError(songErr, 'Impossibile salvare la canzone canonica.') };
 
   revalidatePath(`/library/${songId}`);
   redirect(`/library/${songId}`);
@@ -260,7 +261,7 @@ export async function adoptCanonicalToChurch(
     })
     .select('id')
     .single();
-  if (cloneErr || !clone) return { error: cloneErr?.message ?? 'Errore' };
+  if (cloneErr || !clone) return { error: friendlyError(cloneErr, 'Impossibile adottare la canzone.') };
 
   const { data: cloneVersion } = await supabase
     .from('song_versions')
@@ -298,7 +299,7 @@ export async function deleteCanonicalSong(songId: string): Promise<{ error?: str
   }
 
   const { error } = await supabase.from('songs').delete().eq('id', songId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile eliminare la canzone canonica.') };
 
   revalidatePath('/library');
   redirect('/library');

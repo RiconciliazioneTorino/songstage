@@ -4,7 +4,8 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { sendMail } from '@/lib/email/resend';
+import { friendlyError } from '@/lib/errors';
+import { escapeHtml, sendMail } from '@/lib/email/resend';
 
 const ROLE_LABEL: Record<'admin' | 'director' | 'musico' | 'lector', string> = {
   admin: 'Admin',
@@ -54,7 +55,7 @@ export async function createChurch(formData: FormData): Promise<{ error?: string
 
   if (rpcErr) {
     if (rpcErr.code === '23505') return { error: 'Esiste già una chiesa con questo slug' };
-    return { error: rpcErr.message };
+    return { error: friendlyError(rpcErr, 'Impossibile creare la chiesa.') };
   }
 
   const church = Array.isArray(rows) ? rows[0] : rows;
@@ -81,7 +82,7 @@ export async function addChurchMember(
 
   if (error) {
     if (error.code === '23505') return { error: 'È già membro della chiesa' };
-    return { error: error.message };
+    return { error: friendlyError(error, 'Impossibile aggiungere il membro.') };
   }
 
   revalidatePath(`/churches/[slug]`, 'page');
@@ -97,7 +98,7 @@ export async function searchUsersForChurch(
     p_church_id: churchId,
     p_query: query,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Ricerca non disponibile.') };
   return { users: (data ?? []) as any };
 }
 
@@ -105,7 +106,14 @@ export async function inviteChurchMember(
   churchId: string,
   email: string,
   role: Role
-): Promise<{ error?: string; added?: boolean; invited?: boolean }> {
+): Promise<{
+  error?: string;
+  added?: boolean;
+  invited?: boolean;
+  /** False when the invitation row exists but the email never went out. */
+  emailSent?: boolean;
+  emailError?: string;
+}> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato' };
@@ -125,55 +133,57 @@ export async function inviteChurchMember(
       .insert({ church_id: churchId, user_id: target.id, role });
     if (error) {
       if (error.code === '23505') return { error: 'È già membro della chiesa' };
-      return { error: error.message };
+      return { error: friendlyError(error, 'Impossibile invitare questa persona.') };
     }
     revalidatePath(`/churches/[slug]`, 'page');
     return { added: true };
   }
 
-  const { error } = await supabase
+  const { error: invErr } = await supabase
     .from('church_invitations')
     .upsert(
       { church_id: churchId, email: cleanEmail, role, created_by: user.id },
       { onConflict: 'church_id,email' }
     );
-  if (error) return { error: error.message };
+  if (invErr) return { error: friendlyError(invErr, 'Impossibile invitare questa persona.') };
 
-  const { data: church } = await supabase
-    .from('churches')
-    .select('name, slug')
-    .eq('id', churchId)
-    .maybeSingle();
-
-  const { data: inviter } = await supabase
-    .from('users')
-    .select('display_name, email')
-    .eq('id', user.id)
-    .maybeSingle();
+  const [churchRes, inviterRes] = await Promise.all([
+    supabase.from('churches').select('name, slug').eq('id', churchId).maybeSingle(),
+    supabase.from('users').select('display_name, email').eq('id', user.id).maybeSingle(),
+  ]);
+  const church = churchRes.data;
+  const inviter = inviterRes.data;
 
   const url = `${await baseUrl()}/login?email=${encodeURIComponent(cleanEmail)}`;
   const churchName = church?.name ?? 'una chiesa';
   const inviterName = inviter?.display_name || inviter?.email || 'un amministratore';
   const roleLabel = ROLE_LABEL[role];
 
-  await sendMail({
+  // Display names, church names and the address are user input: escape them
+  // before they reach the email body.
+  const safeChurch = escapeHtml(churchName);
+  const safeInviter = escapeHtml(inviterName);
+  const safeEmail = escapeHtml(cleanEmail);
+  const safeUrl = escapeHtml(url);
+
+  const mail = await sendMail({
     to: cleanEmail,
     subject: `Sei stato invitato a ${churchName} su SongStage`,
     html: `
       <div style="font-family: system-ui, sans-serif; max-width: 480px;">
-        <h2 style="margin-bottom: 8px;">Sei stato invitato a <b>${churchName}</b></h2>
+        <h2 style="margin-bottom: 8px;">Sei stato invitato a <b>${safeChurch}</b></h2>
         <p style="color:#444; margin: 0 0 16px;">
-          ${inviterName} ti ha invitato come <b>${roleLabel}</b> su SongStage,
+          ${safeInviter} ti ha invitato come <b>${roleLabel}</b> su SongStage,
           l'app che usiamo per gestire i canti e le scalette delle riunioni.
         </p>
         <p style="margin: 16px 0;">
-          <a href="${url}" style="display:inline-block; padding:10px 16px; background:#4ade80; color:#0f0f10; text-decoration:none; border-radius:6px; font-weight:600;">
-            Accedi con ${cleanEmail}
+          <a href="${safeUrl}" style="display:inline-block; padding:10px 16px; background:#4ade80; color:#0f0f10; text-decoration:none; border-radius:6px; font-weight:600;">
+            Accedi con ${safeEmail}
           </a>
         </p>
         <p style="color:#888; font-size:12px;">
-          Usa questo indirizzo email per accedere: ${cleanEmail}.
-          Al primo accesso verrai aggiunto automaticamente a ${churchName}.
+          Usa questo indirizzo email per accedere: ${safeEmail}.
+          Al primo accesso verrai aggiunto automaticamente a ${safeChurch}.
         </p>
         <p style="color:#888; font-size:12px;">
           Se non aspettavi questo invito, puoi ignorare questa email.
@@ -183,7 +193,12 @@ export async function inviteChurchMember(
   });
 
   revalidatePath(`/churches/[slug]`, 'page');
-  return { invited: true };
+  // The invitation row is valid either way — it's consumed at first login — so
+  // we keep it and tell the admin the email didn't make it.
+  if (mail.error) {
+    return { invited: true, emailSent: false, emailError: mail.error };
+  }
+  return { invited: true, emailSent: true };
 }
 
 export async function updateChurchMemberRole(
@@ -220,7 +235,7 @@ export async function updateChurchMemberRole(
     .update({ role: newRole })
     .eq('church_id', churchId)
     .eq('user_id', userId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile cambiare il ruolo.') };
 
   revalidatePath(`/churches/[slug]`, 'page');
   return {};
@@ -258,7 +273,7 @@ export async function removeChurchMember(
     .delete()
     .eq('church_id', churchId)
     .eq('user_id', userId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile rimuovere il membro.') };
 
   revalidatePath(`/churches/[slug]`, 'page');
   return {};
@@ -269,7 +284,7 @@ export async function cancelChurchInvitation(
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
   const { error } = await supabase.from('church_invitations').delete().eq('id', invitationId);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile annullare questo invito.') };
   revalidatePath(`/churches/[slug]`, 'page');
   return {};
 }
@@ -284,7 +299,7 @@ export async function updateDisplayName(name: string): Promise<{ error?: string 
     .from('users')
     .update({ display_name: clean })
     .eq('id', user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error, 'Impossibile salvare il nome.') };
   revalidatePath('/dashboard');
   return {};
 }
