@@ -15,6 +15,12 @@ import type { Slide } from '../master/master';
  * the leader's next adjustment.
  */
 const ZOOM_KEY = 'songstage:projector-zoom';
+/**
+ * Chords on the congregation's screen are this screen's business too. Until
+ * someone here decides, it follows the leader, so nothing changes for a
+ * church that never touches the button.
+ */
+const SHOW_CHORDS_KEY = 'songstage:projector-show-chords';
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4;
 
@@ -36,6 +42,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
   const [slidesLocal, setSlidesLocal] = useState(slides);
   const [connected, setConnected] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [showChordsLocal, setShowChordsLocal] = useState<boolean | null>(null);
   // The controls sit out of the way until someone interacts: this screen is
   // pointed at a congregation, not at an operator.
   const [controlsVisible, setControlsVisible] = useState(false);
@@ -53,6 +60,8 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     try {
       const saved = Number.parseFloat(localStorage.getItem(ZOOM_KEY) ?? '');
       if (Number.isFinite(saved) && saved > 0) setZoom(clampZoom(saved));
+      const chords = localStorage.getItem(SHOW_CHORDS_KEY);
+      if (chords !== null) setShowChordsLocal(chords === '1');
     } catch {}
   }, []);
 
@@ -69,6 +78,15 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     setZoom(clamped);
     try {
       localStorage.setItem(ZOOM_KEY, String(clamped));
+    } catch {}
+    revealControls();
+  }
+
+  function toggleChords() {
+    const next = !(showChordsLocal ?? state.showChords);
+    setShowChordsLocal(next);
+    try {
+      localStorage.setItem(SHOW_CHORDS_KEY, next ? '1' : '0');
     } catch {}
     revealControls();
   }
@@ -252,7 +270,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
           semitones={totalSemitones}
           // The leader's size for the room, scaled by this screen's own zoom.
           fontScale={state.fontScale * zoom * 1.4}
-          showChords={state.showChords}
+          showChords={showChordsLocal ?? state.showChords}
         />
       )}
 
@@ -278,6 +296,19 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
           className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
         >
           A+
+        </button>
+        <button
+          onClick={toggleChords}
+          aria-pressed={showChordsLocal ?? state.showChords}
+          aria-label="Mostra o nascondi gli accordi"
+          title="Mostra o nascondi gli accordi"
+          className={`min-w-[2.25rem] h-9 rounded-full border text-sm flex items-center justify-center ${
+            (showChordsLocal ?? state.showChords)
+              ? 'border-accent text-accent'
+              : 'border-border hover:border-accent text-zinc-400'
+          }`}
+        >
+          ♪
         </button>
       </div>
     </main>

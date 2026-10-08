@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { parseOnSong, SongView } from '@/lib/onsong';
+import { useFitToWidth } from '@/lib/onsong/useFitToWidth';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
 import {
@@ -56,6 +57,9 @@ const FONT_SCALE_KEY = 'songstage:font-scale';
  * and a leader squinting at a phone must not shrink the wall.
  */
 const PROJECTOR_FONT_SCALE_KEY = 'songstage:projector-font-scale';
+const FIT_WIDTH_KEY = 'songstage:fit-width';
+/** Whether to show chords is a property of who is reading this screen. */
+const SHOW_CHORDS_KEY = 'songstage:show-chords';
 const DEFAULT_CHORD_COLOR = '#4ade80';
 const DEFAULT_SECTION_COLOR = '#fbbf24';
 
@@ -131,6 +135,7 @@ export function Master({
   const [slidesLocal, setSlidesLocal] = useState(slides);
   const [fontScale, setFontScale] = useState(1);
   const [projectorFontScale, setProjectorFontScale] = useState(1);
+  const [fitWidth, setFitWidth] = useState(false);
   const [showChords, setShowChords] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState('');
@@ -353,6 +358,21 @@ export function Master({
     } catch {}
   }, [projectorFontScale]);
 
+  // Restore this screen's reading preferences
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(FIT_WIDTH_KEY) === '1') setFitWidth(true);
+      const chords = localStorage.getItem(SHOW_CHORDS_KEY);
+      if (chords !== null) setShowChords(chords === '1');
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(FIT_WIDTH_KEY, fitWidth ? '1' : '0');
+      localStorage.setItem(SHOW_CHORDS_KEY, showChords ? '1' : '0');
+    } catch {}
+  }, [fitWidth, showChords]);
+
   // Restore local emit-metronome preference
   useEffect(() => {
     try {
@@ -478,10 +498,9 @@ export function Master({
       } else {
         setIndex(next);
       }
-      // p.fontScale is deliberately ignored: this screen's size is this
-      // device's business. The unattended projector still follows the leader,
-      // since nobody is standing at it to adjust anything.
-      setShowChords(p.showChords);
+      // p.fontScale and p.showChords are deliberately ignored: how this screen
+      // is read belongs to whoever is reading it. The unattended projector
+      // still follows the leader, since nobody is standing at it.
       if (typeof p.transpose === 'number') setFollowerTranspose(p.transpose);
       const el = scrollRef.current;
       if (el) {
@@ -733,6 +752,15 @@ export function Master({
   }, [slidesLocal.length, index, editing]);
 
   const isMaster = role === 'master';
+
+  const fitRef = useFitToWidth({
+    enabled: fitWidth,
+    currentScale: fontScale,
+    onFit: setFontScale,
+    // Re-measure per song: the longest line is what sets the size, and it
+    // changes from one song to the next.
+    deps: currentSlide?.itemId,
+  });
 
   const sortSensors = useSensors(
     // A threshold keeps a tap meant to jump to a song from starting a drag.
@@ -1022,18 +1050,37 @@ export function Master({
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
+            onClick={() => {
+              // An explicit choice of size wins over the automatic one.
+              setFitWidth(false);
+              setFontScale((f) => Math.max(0.6, f - 0.1));
+            }}
             className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Diminuisci carattere su questo schermo"
           >
             A−
           </button>
           <button
-            onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
+            onClick={() => {
+              setFitWidth(false);
+              setFontScale((f) => Math.min(3, f + 0.1));
+            }}
             className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Ingrandisci carattere su questo schermo"
           >
             A+
+          </button>
+          <button
+            onClick={() => setFitWidth((v) => !v)}
+            aria-pressed={fitWidth}
+            className={`min-w-[2.25rem] h-9 rounded-full border text-sm flex items-center justify-center ${
+              fitWidth
+                ? 'border-accent text-accent'
+                : 'border-border hover:border-accent text-zinc-400'
+            }`}
+            title="Adatta il testo alla larghezza dello schermo"
+          >
+            ⇔
           </button>
         </div>
 
@@ -1414,7 +1461,10 @@ export function Master({
               else if (x > rect.width - zone) goNext();
             }}
           >
-            <div className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20">
+            <div
+              ref={fitRef}
+              className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20"
+            >
               {song && (
                 <SongView
                   song={song}
