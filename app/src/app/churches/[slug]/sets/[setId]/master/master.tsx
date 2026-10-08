@@ -10,8 +10,32 @@ import {
   addSongToSet,
   heartbeatSetMaster,
   releaseSetMaster,
+  reorderSetItems,
   updateSetItem,
 } from '@/lib/sets/actions';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  applyOrder,
+  resolveIncomingIndex,
+  type ProjectionState,
+} from '@/lib/sets/projection';
 import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
 import { exportElementToPdf } from '@/lib/pdf/export';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -37,6 +61,8 @@ export type SlideVariation = {
   bandName: string | null;
 };
 
+export type { ProjectionState };
+
 export type Slide = {
   itemId: string;
   songId: string;
@@ -54,19 +80,6 @@ export type Slide = {
   baseBody: string;
   availableVariations: SlideVariation[];
   variationBodies: Record<string, string>;
-};
-
-export type ProjectionState = {
-  index: number;
-  /**
-   * Absolute semitones for the slide at `index`, as the leader sees it — not a
-   * delta against the stored value. A follower that loaded the set after the
-   * leader had already transposed would otherwise add the shift twice.
-   */
-  transpose: number;
-  fontScale: number;
-  showChords: boolean;
-  scrollFraction: number;
 };
 
 export type AvailableSong = {
@@ -116,6 +129,10 @@ export function Master({
   const [role, setRole] = useState<'connecting' | 'master' | 'viewer'>('connecting');
   // Absolute transpose pushed by the leader; null until the first state frame.
   const [followerTranspose, setFollowerTranspose] = useState<number | null>(null);
+  // The song the leader last reported, so a refreshed slide list can catch up
+  // to a song that wasn't in ours when the frame arrived.
+  const [followerItemId, setFollowerItemId] = useState<string | null>(null);
+  const [reorderError, setReorderError] = useState<string | null>(null);
   const [activeMasterEmail, setActiveMasterEmail] = useState<string | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<
     { userId: string; email: string; expiresAt: number } | null
@@ -142,6 +159,12 @@ export function Master({
       Date.now() - liveMasterHeartbeat < 45_000
   );
   const channelRef = useRef<RealtimeChannel | null>(null);
+  // The broadcast handlers are installed once, so they read the slide list
+  // through a ref instead of a stale closure.
+  const slidesLocalRef = useRef(slidesLocal);
+  useEffect(() => {
+    slidesLocalRef.current = slidesLocal;
+  }, [slidesLocal]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const printRef = useRef<HTMLDivElement | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -152,6 +175,13 @@ export function Master({
   useEffect(() => setSlidesLocal(slides), [slides]);
 
   const currentSlide = slidesLocal[index];
+
+  // A refresh may have just brought in the song the leader moved to.
+  useEffect(() => {
+    if (roleRef.current !== 'viewer' || !followerItemId) return;
+    const found = slidesLocal.findIndex((s) => s.itemId === followerItemId);
+    if (found !== -1 && found !== index) setIndex(found);
+  }, [slidesLocal, followerItemId, index]);
   const currentTranspose = currentSlide?.transpose ?? 0;
 
   function persistTranspose(itemId: string, value: number) {
@@ -187,10 +217,22 @@ export function Master({
     });
   }
 
-  const stateRef = useRef({ index, transpose: currentTranspose, fontScale, showChords });
+  const stateRef = useRef({
+    itemId: currentSlide?.itemId ?? null,
+    index,
+    transpose: currentTranspose,
+    fontScale,
+    showChords,
+  });
   useEffect(() => {
-    stateRef.current = { index, transpose: currentTranspose, fontScale, showChords };
-  }, [index, currentTranspose, fontScale, showChords]);
+    stateRef.current = {
+      itemId: currentSlide?.itemId ?? null,
+      index,
+      transpose: currentTranspose,
+      fontScale,
+      showChords,
+    };
+  }, [currentSlide, index, currentTranspose, fontScale, showChords]);
 
   const metronomeStateRef = useRef<MetronomeUpdate>({
     running: metronomeRunning,
@@ -391,7 +433,15 @@ export function Master({
     channel.on('broadcast', { event: 'state' }, ({ payload }) => {
       if (roleRef.current !== 'viewer') return;
       const p = payload as ProjectionState;
-      setIndex(p.index);
+      setFollowerItemId(p.itemId ?? null);
+      const next = resolveIncomingIndex(p, slidesLocalRef.current, stateRef.current.index);
+      if (next === -1) {
+        // The leader added a song we don't have. Pull the new set and stay put
+        // meanwhile; the next state frame lands us on the right slide.
+        router.refresh();
+      } else {
+        setIndex(next);
+      }
       setFontScale(p.fontScale);
       setShowChords(p.showChords);
       if (typeof p.transpose === 'number') setFollowerTranspose(p.transpose);
@@ -411,6 +461,14 @@ export function Master({
       setSlidesLocal((prev) =>
         prev.map((s) => (s.itemId === itemId ? { ...s, body } : s))
       );
+    });
+
+    // The leader reordered the set mid-service. Followers re-sort in place:
+    // a refetch would be slower and could blank the screen mid-song.
+    channel.on('broadcast', { event: 'set_order' }, ({ payload }) => {
+      if (roleRef.current === 'master') return;
+      const { itemIds } = payload as { itemIds: string[] };
+      setSlidesLocal((prev) => applyOrder(prev, itemIds));
     });
 
     channel.on('broadcast', { event: 'lead_request' }, ({ payload }) => {
@@ -549,6 +607,7 @@ export function Master({
       type: 'broadcast',
       event: 'state',
       payload: {
+        itemId: slidesLocal[index]?.itemId ?? null,
         index,
         transpose: currentTranspose,
         fontScale,
@@ -569,6 +628,7 @@ export function Master({
       type: 'broadcast',
       event: 'state',
       payload: {
+        itemId: slidesLocal[index]?.itemId ?? null,
         index,
         transpose: currentTranspose,
         fontScale,
@@ -595,6 +655,7 @@ export function Master({
         type: 'broadcast',
         event: 'state',
         payload: {
+          itemId: slidesLocal[index]?.itemId ?? null,
           index,
           transpose: currentTranspose,
           fontScale,
@@ -634,6 +695,65 @@ export function Master({
   }, [slidesLocal.length, index, editing]);
 
   const isMaster = role === 'master';
+
+  const sortSensors = useSensors(
+    // A threshold keeps a tap meant to jump to a song from starting a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  async function onSidebarDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const from = slidesLocal.findIndex((s) => s.itemId === active.id);
+    const to = slidesLocal.findIndex((s) => s.itemId === over.id);
+    if (from === -1 || to === -1) return;
+
+    const previous = slidesLocal;
+    const next = arrayMove(slidesLocal, from, to);
+    const currentItemId = slidesLocal[index]?.itemId;
+
+    setSlidesLocal(next);
+    // Stay on whatever song is playing, wherever it landed.
+    const stillAt = next.findIndex((s) => s.itemId === currentItemId);
+    if (stillAt !== -1) setIndex(stillAt);
+
+    const itemIds = next.map((s) => s.itemId);
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'set_order',
+      payload: { itemIds },
+    });
+    // Re-anchor everyone on the current song right after the shuffle: a viewer
+    // that has never received a state frame is still sitting on index 0, which
+    // is now a different song.
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'state',
+      payload: {
+        itemId: currentItemId ?? null,
+        index: stillAt !== -1 ? stillAt : index,
+        transpose: currentTranspose,
+        fontScale,
+        showChords,
+        scrollFraction: scrollFractionRef.current,
+      },
+    });
+
+    const { error } = await reorderSetItems(setId, itemIds);
+    if (error) {
+      setSlidesLocal(previous);
+      const back = previous.findIndex((s) => s.itemId === currentItemId);
+      if (back !== -1) setIndex(back);
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'set_order',
+        payload: { itemIds: previous.map((s) => s.itemId) },
+      });
+      setReorderError(error);
+    }
+  }
   const isViewer = role === 'viewer';
 
   const canPrev = index > 0 && isMaster;
@@ -1182,36 +1302,37 @@ export function Master({
       <div data-no-print className="flex-1 flex overflow-hidden">
         {sidebarOpen && (
           <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0">
-            <ol className="p-2 text-sm">
-              {slidesLocal.map((s, i) => (
-                <li key={s.itemId}>
-                  <button
-                    onClick={() => setIndex(i)}
-                    className={`w-full text-left px-2 py-2 rounded-full flex items-baseline gap-2 hover:bg-bg ${
-                      i === index ? 'bg-bg border-l-2 border-accent' : ''
-                    }`}
-                  >
-                    <span className="text-xs text-zinc-500 min-w-[1.5rem]">
-                      {i + 1}.
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`truncate ${
-                          i === index ? 'text-white' : 'text-zinc-300'
-                        }`}
-                      >
-                        {s.title}
-                      </div>
-                      {s.artist && (
-                        <div className="text-xs text-zinc-500 truncate">
-                          {s.artist}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ol>
+            {reorderError && (
+              <div className="m-2 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-300">
+                {reorderError}
+              </div>
+            )}
+            <DndContext
+              sensors={sortSensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              onDragEnd={onSidebarDragEnd}
+            >
+              <SortableContext
+                items={slidesLocal.map((s) => s.itemId)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ol className="p-2 text-sm">
+                  {slidesLocal.map((s, i) => (
+                    <SetlistRow
+                      key={s.itemId}
+                      slide={s}
+                      position={i}
+                      isCurrent={i === index}
+                      // Only the leader reorders: a viewer dragging would
+                      // desync their screen from everyone else's.
+                      draggable={isMaster}
+                      onSelect={() => setIndex(i)}
+                    />
+                  ))}
+                </ol>
+              </SortableContext>
+            </DndContext>
           </aside>
         )}
 
@@ -1483,5 +1604,64 @@ export function Master({
         </div>
       )}
     </main>
+  );
+}
+
+function SetlistRow({
+  slide,
+  position,
+  isCurrent,
+  draggable,
+  onSelect,
+}: {
+  slide: Slide;
+  position: number;
+  isCurrent: boolean;
+  draggable: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: slide.itemId,
+    disabled: !draggable,
+  });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center ${isDragging ? 'relative z-10 opacity-80' : ''}`}
+    >
+      {draggable && (
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label={`Riordina ${slide.title}`}
+          title="Trascina per riordinare"
+          className="px-1 text-zinc-600 hover:text-accent cursor-grab active:cursor-grabbing touch-none text-xs leading-none"
+        >
+          ⠿
+        </button>
+      )}
+      <button
+        onClick={onSelect}
+        className={`flex-1 min-w-0 text-left px-2 py-2 rounded-full flex items-baseline gap-2 hover:bg-bg ${
+          isCurrent ? 'bg-bg' : ''
+        }`}
+      >
+        <span
+          className={`text-xs min-w-[1.5rem] ${isCurrent ? 'text-accent' : 'text-zinc-500'}`}
+        >
+          {position + 1}.
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className={`truncate ${isCurrent ? 'text-white' : 'text-zinc-300'}`}>
+            {slide.title}
+          </div>
+          {slide.artist && (
+            <div className="text-xs text-zinc-500 truncate">{slide.artist}</div>
+          )}
+        </div>
+      </button>
+    </li>
   );
 }
