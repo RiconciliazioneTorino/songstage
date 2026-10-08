@@ -1,4 +1,5 @@
 import type { Song, Token } from './parser';
+import { groupIntoWords, type Pair } from './layout';
 import { transposeChord, transposeKey } from './transpose';
 
 export type SongViewProps = {
@@ -65,7 +66,7 @@ function LyricLine({
 }) {
   if (tokens.length === 0) return <div className="song-line">&nbsp;</div>;
 
-  const pairs: { chord: string | null; lyric: string }[] = [];
+  const pairs: Pair[] = [];
   let i = 0;
   if (tokens[0].kind === 'text' && tokens[0].value.length > 0) {
     pairs.push({ chord: null, lyric: tokens[0].value });
@@ -84,19 +85,26 @@ function LyricLine({
     }
   }
 
+  // Wrapping happens between words, never inside one — see layout.ts.
+  const words = groupIntoWords(pairs);
+
   return (
     <div className="song-line mb-1">
-      {pairs.map((p, idx) => {
-        const chordOnly = !!p.chord && !/\S/.test(p.lyric);
-        return (
-          <span key={idx} className={`pair${chordOnly ? ' chord-only' : ''}`}>
-            <span className={`chord${p.chord ? '' : ' empty'}`}>
-              {p.chord ? transposeChord(p.chord, semitones, targetKey) : ' '}
-            </span>
-            <span className="lyric">{p.lyric}</span>
-          </span>
-        );
-      })}
+      {words.map((word, wi) => (
+        <span key={wi} className="word">
+          {word.map((p, idx) => {
+            const chordOnly = !!p.chord && !/\S/.test(p.lyric);
+            return (
+              <span key={idx} className={`pair${chordOnly ? ' chord-only' : ''}`}>
+                <span className={`chord${p.chord ? '' : ' empty'}`}>
+                  {p.chord ? transposeChord(p.chord, semitones, targetKey) : ' '}
+                </span>
+                <span className="lyric">{p.lyric}</span>
+              </span>
+            );
+          })}
+        </span>
+      ))}
     </div>
   );
 }

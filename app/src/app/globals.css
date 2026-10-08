@@ -15,12 +15,22 @@ html, body {
 }
 
 .song-line { display: flex; flex-wrap: wrap; align-items: flex-end; }
+/* A word is the unbreakable unit. A chord may fall mid-word ("Ad[G]orerò"),
+   splitting it into several pairs; grouping them keeps a narrow screen from
+   wrapping into "Loderò, con la f / orza che ho". */
+.word { display: inline-flex; align-items: flex-end; }
+/* Last resort: a single word wider than the screen breaks rather than
+   overflowing off the side. */
+.word { overflow-wrap: anywhere; }
 .pair { display: inline-flex; flex-direction: column; white-space: pre; }
 .pair .chord { color: var(--chord-color); font-weight: bold; font-size: 0.85em; line-height: 1; min-height: 1em; }
 .pair .chord.empty { visibility: hidden; }
 .pair .lyric { line-height: 1.2; }
 .pair.chord-only { margin-right: 0.6em; }
-.pair.chord-only:last-child { margin-right: 0; }
+/* Scoped to the line, not the pair: a bare chord is an only child of its own
+   word, so a :last-child reset here would match every one of them and run
+   "A B C D E F" together. */
+.song-line > .word:last-child .pair.chord-only:last-child { margin-right: 0; }
 .no-chords .chord { display: none; }
 /* An instrumental line is nothing but chords — collapse it instead of
    leaving a run of blank space in the lyrics-only view. */

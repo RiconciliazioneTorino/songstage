@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -67,9 +68,12 @@ export function SetEditor({
   useEffect(() => setItems(initialItems), [initialItems]);
 
   const sensors = useSensors(
-    // A small distance threshold keeps taps on the per-row controls from
-    // starting a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // A small movement is enough to mean "drag" with a mouse.
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Touch is different: the list scrolls, and a finger that starts on the
+    // handle is usually trying to scroll past it. Waiting for a short hold
+    // tells the two apart, and gives the press somewhere to register.
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -226,7 +230,7 @@ function SortableRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`py-2 px-2 flex items-center gap-3 bg-panel ${
+      className={`py-2 px-2 flex items-start gap-2 bg-panel sm:items-center sm:gap-3 ${
         isDragging ? 'relative z-10 opacity-80 shadow-lg' : ''
       }`}
     >
@@ -235,36 +239,43 @@ function SortableRow({
         {...listeners}
         title="Trascina per riordinare"
         aria-label={`Riordina ${item.song.title}`}
-        className="px-1 text-zinc-500 hover:text-accent cursor-grab active:cursor-grabbing touch-none text-sm leading-none"
+        className="px-2 py-2 -my-1 text-zinc-500 hover:text-accent cursor-grab active:cursor-grabbing touch-none text-base leading-none"
       >
         ⠿
       </button>
-      <span className="text-zinc-500 text-sm w-6 text-right">{index + 1}.</span>
-      <div className="flex-1 min-w-0">
-        <div className="font-medium truncate">{item.song.title}</div>
-        <div className="text-xs text-zinc-500 truncate">
-          {item.song.original_key ? `Orig: ${item.song.original_key}` : ''}
-          {item.song.artist ? ` · ${item.song.artist}` : ''}
-          {item.isCanonical ? ' · canonica' : ''}
+      <span className="text-zinc-500 text-sm w-6 text-right pt-0.5 sm:pt-0">{index + 1}.</span>
+      {/* Stacked on a phone: in one row the controls do not shrink, so the
+          title is what gives way — and a set of songs with no titles is
+          useless. */}
+      <div className="flex-1 min-w-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="min-w-0 sm:flex-1">
+          <div className="font-medium truncate">{item.song.title}</div>
+          <div className="text-xs text-zinc-500 truncate">
+            {item.song.original_key ? `Orig: ${item.song.original_key}` : ''}
+            {item.song.artist ? ` · ${item.song.artist}` : ''}
+            {item.isCanonical ? ' · canonica' : ''}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <VariationPicker
+            itemId={item.id}
+            current={item.variation_id}
+            variations={item.availableVariations}
+            onChange={onChange}
+          />
+          <TransposeControl itemId={item.id} value={item.transpose_semitones} onChange={onChange} />
+          <button
+            title="Rimuovi"
+            onClick={async () => {
+              await removeSetItem(item.id);
+              onChange();
+            }}
+            className="px-2 py-1 rounded-full border border-border hover:border-red-500 text-xs ml-auto sm:ml-0"
+          >
+            ✕
+          </button>
         </div>
       </div>
-      <VariationPicker
-        itemId={item.id}
-        current={item.variation_id}
-        variations={item.availableVariations}
-        onChange={onChange}
-      />
-      <TransposeControl itemId={item.id} value={item.transpose_semitones} onChange={onChange} />
-      <button
-        title="Rimuovi"
-        onClick={async () => {
-          await removeSetItem(item.id);
-          onChange();
-        }}
-        className="px-2 py-1 rounded-full border border-border hover:border-red-500 text-xs"
-      >
-        ✕
-      </button>
     </li>
   );
 }

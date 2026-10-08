@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { parseOnSong, SongView } from '@/lib/onsong';
+import { useFitToWidth } from '@/lib/onsong/useFitToWidth';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
 import {
@@ -16,7 +17,8 @@ import {
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -43,6 +45,22 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
 const CHORD_COLOR_KEY = 'songstage:chord-color';
 const SECTION_COLOR_KEY = 'songstage:section-color';
+/**
+ * Text size belongs to the screen, not to the set: a phone, a laptop at the
+ * keyboard and a projector all want different sizes, and the person holding
+ * each one is the only one who can judge. So it persists per device and a
+ * leader's size is no longer pushed onto the people following.
+ */
+const FONT_SCALE_KEY = 'songstage:font-scale';
+/**
+ * What the congregation's screen gets. Separate from this device's own size:
+ * the projector has no controls of its own, so the leader sizes it from here,
+ * and a leader squinting at a phone must not shrink the wall.
+ */
+const PROJECTOR_FONT_SCALE_KEY = 'songstage:projector-font-scale';
+const FIT_WIDTH_KEY = 'songstage:fit-width';
+/** Whether to show chords is a property of who is reading this screen. */
+const SHOW_CHORDS_KEY = 'songstage:show-chords';
 const DEFAULT_CHORD_COLOR = '#4ade80';
 const DEFAULT_SECTION_COLOR = '#fbbf24';
 
@@ -117,6 +135,8 @@ export function Master({
   const [index, setIndex] = useState(0);
   const [slidesLocal, setSlidesLocal] = useState(slides);
   const [fontScale, setFontScale] = useState(1);
+  const [projectorFontScale, setProjectorFontScale] = useState(1);
+  const [fitWidth, setFitWidth] = useState(false);
   const [showChords, setShowChords] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState('');
@@ -221,7 +241,7 @@ export function Master({
     itemId: currentSlide?.itemId ?? null,
     index,
     transpose: currentTranspose,
-    fontScale,
+    fontScale: projectorFontScale,
     showChords,
   });
   useEffect(() => {
@@ -229,10 +249,10 @@ export function Master({
       itemId: currentSlide?.itemId ?? null,
       index,
       transpose: currentTranspose,
-      fontScale,
+      fontScale: projectorFontScale,
       showChords,
     };
-  }, [currentSlide, index, currentTranspose, fontScale, showChords]);
+  }, [currentSlide, index, currentTranspose, projectorFontScale, showChords]);
 
   const metronomeStateRef = useRef<MetronomeUpdate>({
     running: metronomeRunning,
@@ -316,6 +336,43 @@ export function Master({
       localStorage.setItem(SECTION_COLOR_KEY, sectionColor);
     } catch {}
   }, [chordColor, sectionColor]);
+
+  // Restore this device's text size, and the projection size this device sets
+  useEffect(() => {
+    try {
+      const mine = Number.parseFloat(localStorage.getItem(FONT_SCALE_KEY) ?? '');
+      if (Number.isFinite(mine) && mine > 0) setFontScale(mine);
+      const proj = Number.parseFloat(
+        localStorage.getItem(PROJECTOR_FONT_SCALE_KEY) ?? ''
+      );
+      if (Number.isFinite(proj) && proj > 0) setProjectorFontScale(proj);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(FONT_SCALE_KEY, String(fontScale));
+    } catch {}
+  }, [fontScale]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROJECTOR_FONT_SCALE_KEY, String(projectorFontScale));
+    } catch {}
+  }, [projectorFontScale]);
+
+  // Restore this screen's reading preferences
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(FIT_WIDTH_KEY) === '1') setFitWidth(true);
+      const chords = localStorage.getItem(SHOW_CHORDS_KEY);
+      if (chords !== null) setShowChords(chords === '1');
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(FIT_WIDTH_KEY, fitWidth ? '1' : '0');
+      localStorage.setItem(SHOW_CHORDS_KEY, showChords ? '1' : '0');
+    } catch {}
+  }, [fitWidth, showChords]);
 
   // Restore local emit-metronome preference
   useEffect(() => {
@@ -442,8 +499,9 @@ export function Master({
       } else {
         setIndex(next);
       }
-      setFontScale(p.fontScale);
-      setShowChords(p.showChords);
+      // p.fontScale and p.showChords are deliberately ignored: how this screen
+      // is read belongs to whoever is reading it. The unattended projector
+      // still follows the leader, since nobody is standing at it.
       if (typeof p.transpose === 'number') setFollowerTranspose(p.transpose);
       const el = scrollRef.current;
       if (el) {
@@ -610,7 +668,7 @@ export function Master({
         itemId: slidesLocal[index]?.itemId ?? null,
         index,
         transpose: currentTranspose,
-        fontScale,
+        fontScale: projectorFontScale,
         showChords,
         scrollFraction: 0,
       },
@@ -631,13 +689,13 @@ export function Master({
         itemId: slidesLocal[index]?.itemId ?? null,
         index,
         transpose: currentTranspose,
-        fontScale,
+        fontScale: projectorFontScale,
         showChords,
         scrollFraction: scrollFractionRef.current,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTranspose, fontScale, showChords]);
+  }, [currentTranspose, projectorFontScale, showChords]);
 
   function onContentScroll() {
     if (roleRef.current !== 'master') return;
@@ -658,7 +716,7 @@ export function Master({
           itemId: slidesLocal[index]?.itemId ?? null,
           index,
           transpose: currentTranspose,
-          fontScale,
+          fontScale: projectorFontScale,
           showChords,
           scrollFraction: scrollFractionRef.current,
         },
@@ -696,9 +754,22 @@ export function Master({
 
   const isMaster = role === 'master';
 
+  const fitRef = useFitToWidth({
+    enabled: fitWidth,
+    currentScale: fontScale,
+    onFit: setFontScale,
+    // Re-measure per song: the longest line is what sets the size, and it
+    // changes from one song to the next.
+    deps: currentSlide?.itemId,
+  });
+
   const sortSensors = useSensors(
-    // A threshold keeps a tap meant to jump to a song from starting a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // A small movement is enough to mean "drag" with a mouse.
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Touch is different: the list scrolls, and a finger that starts on the
+    // handle is usually trying to scroll past it. Waiting for a short hold
+    // tells the two apart, and gives the press somewhere to register.
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -735,7 +806,7 @@ export function Master({
         itemId: currentItemId ?? null,
         index: stillAt !== -1 ? stillAt : index,
         transpose: currentTranspose,
-        fontScale,
+        fontScale: projectorFontScale,
         showChords,
         scrollFraction: scrollFractionRef.current,
       },
@@ -912,9 +983,12 @@ export function Master({
         } as React.CSSProperties
       }
     >
+      {/* On a phone this bar wrapped into eight stacked rows and ate most of
+          the screen. One row that scrolls sideways keeps every control
+          reachable and gives the song back its space. */}
       <div
         data-no-print
-        className="border-b border-border bg-panel p-3 flex flex-wrap gap-3 items-center"
+        className="border-b border-border bg-panel p-3 flex gap-3 items-center max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:[&>*]:shrink-0 sm:flex-wrap"
         style={{
           paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
           paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
@@ -984,20 +1058,62 @@ export function Master({
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
+            onClick={() => {
+              // An explicit choice of size wins over the automatic one.
+              setFitWidth(false);
+              setFontScale((f) => Math.max(0.6, f - 0.1));
+            }}
             className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="Diminuisci carattere"
+            title="Diminuisci carattere su questo schermo"
           >
             A−
           </button>
           <button
-            onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
+            onClick={() => {
+              setFitWidth(false);
+              setFontScale((f) => Math.min(3, f + 0.1));
+            }}
             className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="Ingrandisci carattere"
+            title="Ingrandisci carattere su questo schermo"
           >
             A+
           </button>
+          <button
+            onClick={() => setFitWidth((v) => !v)}
+            aria-pressed={fitWidth}
+            className={`min-w-[2.25rem] h-9 rounded-full border text-sm flex items-center justify-center ${
+              fitWidth
+                ? 'border-accent text-accent'
+                : 'border-border hover:border-accent text-zinc-400'
+            }`}
+            title="Adatta il testo alla larghezza dello schermo"
+          >
+            ⇔
+          </button>
         </div>
+
+        {isMaster && (
+          <div className="flex items-center gap-1" title="Carattere sullo schermo di proiezione">
+            <span className="text-xs text-zinc-500 px-1">📽</span>
+            <button
+              onClick={() => setProjectorFontScale((f) => Math.max(0.6, f - 0.1))}
+              className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+              title="Rimpicciolisci la proiezione"
+            >
+              A−
+            </button>
+            <span className="text-xs h-9 px-1 min-w-[2.5rem] text-center font-mono flex items-center justify-center text-zinc-400">
+              {Math.round(projectorFontScale * 100)}%
+            </span>
+            <button
+              onClick={() => setProjectorFontScale((f) => Math.min(3, f + 0.1))}
+              className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+              title="Ingrandisci la proiezione"
+            >
+              A+
+            </button>
+          </div>
+        )}
 
         {slide.availableVariations.length > 0 && (
           <select
@@ -1299,9 +1415,9 @@ export function Master({
         </div>
       )}
 
-      <div data-no-print className="flex-1 flex overflow-hidden">
+      <div data-no-print className="flex-1 flex overflow-hidden relative">
         {sidebarOpen && (
-          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0">
+          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0 max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-20 max-sm:bg-panel max-sm:shadow-2xl">
             {reorderError && (
               <div className="m-2 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-300">
                 {reorderError}
@@ -1353,7 +1469,10 @@ export function Master({
               else if (x > rect.width - zone) goNext();
             }}
           >
-            <div className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20">
+            <div
+              ref={fitRef}
+              className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20"
+            >
               {song && (
                 <SongView
                   song={song}
