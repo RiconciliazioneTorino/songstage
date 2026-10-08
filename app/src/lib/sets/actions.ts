@@ -148,42 +148,32 @@ export async function addSongToSet(
 
 export async function removeSetItem(itemId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
+  const { data: item } = await supabase
+    .from('set_items')
+    .select('set_id')
+    .eq('id', itemId)
+    .maybeSingle();
   const { error } = await supabase.from('set_items').delete().eq('id', itemId);
   if (error) return { error: friendlyError(error, 'Impossibile rimuovere la canzone dal set.') };
+  if (item) revalidatePath(`/churches/[slug]/sets/${item.set_id}`, 'page');
   return {};
 }
 
-export async function moveSetItem(
-  itemId: string,
-  direction: 'up' | 'down'
+export async function reorderSetItems(
+  setId: string,
+  itemIds: string[]
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { data: item } = await supabase
-    .from('set_items')
-    .select('id, set_id, position')
-    .eq('id', itemId)
-    .maybeSingle();
-  if (!item) return { error: 'Elemento non trovato' };
+  // Renumbering runs in a single RPC: set_items has a non-deferrable
+  // unique (set_id, position), so a partial renumber from here would either
+  // collide or leave the set half-sorted.
+  const { error } = await supabase.rpc('reorder_set_items', {
+    p_set_id: setId,
+    p_item_ids: itemIds,
+  });
+  if (error) return { error: friendlyError(error, 'Impossibile riordinare il set.') };
 
-  const query = supabase
-    .from('set_items')
-    .select('id, position')
-    .eq('set_id', item.set_id)
-    .limit(1);
-
-  const { data: neighbor } =
-    direction === 'up'
-      ? await query.lt('position', item.position).order('position', { ascending: false }).maybeSingle()
-      : await query.gt('position', item.position).order('position', { ascending: true }).maybeSingle();
-
-  if (!neighbor) return {};
-
-  // Two-step swap to avoid violating the (set_id, position) unique constraint
-  const tmp = -Math.abs(item.position) - 1;
-  await supabase.from('set_items').update({ position: tmp }).eq('id', item.id);
-  await supabase.from('set_items').update({ position: item.position }).eq('id', neighbor.id);
-  await supabase.from('set_items').update({ position: neighbor.position }).eq('id', item.id);
-
+  revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
   return {};
 }
 
@@ -318,7 +308,13 @@ export async function updateSetItem(
   }
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.from('set_items').update(patch).eq('id', itemId);
+  const { data: item, error } = await supabase
+    .from('set_items')
+    .update(patch)
+    .eq('id', itemId)
+    .select('set_id')
+    .maybeSingle();
   if (error) return { error: friendlyError(error, 'Impossibile salvare la modifica.') };
+  if (item) revalidatePath(`/churches/[slug]/sets/${item.set_id}`, 'page');
   return {};
 }
