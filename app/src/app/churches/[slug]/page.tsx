@@ -29,10 +29,12 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
   const myRole = myMembership?.role as 'admin' | 'director' | 'musico' | 'lector' | undefined;
   const isAdmin = myRole === 'admin';
 
-  const { data: members } = await supabase
+  const { data: memberRows } = await supabase
     .from('church_members')
     .select('role, joined_at, user:users(id, email, display_name)')
     .eq('church_id', church.id);
+  // A membership whose user row isn't visible can't be rendered.
+  const members = (memberRows ?? []).flatMap((m) => (m.user ? [{ ...m, user: m.user }] : []));
 
   const { data: bands } = await supabase
     .from('bands')
@@ -80,10 +82,10 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Membri</h2>
-          <span className="text-xs text-zinc-500">{members?.length ?? 0}</span>
+          <span className="text-xs text-zinc-500">{members.length}</span>
         </div>
         <div className="space-y-2">
-          {(members ?? []).flatMap((m) => (m.user ? [{ ...m, user: m.user }] : [])).map((m) => (
+          {members.map((m) => (
             <div
               key={m.user.id}
               className="flex items-center justify-between rounded-md border border-border bg-panel px-3 py-2"
