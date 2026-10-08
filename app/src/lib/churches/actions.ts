@@ -6,13 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { friendlyError } from '@/lib/errors';
 import { escapeHtml, sendMail } from '@/lib/email/resend';
-
-const ROLE_LABEL: Record<'admin' | 'director' | 'musico' | 'lector', string> = {
-  admin: 'Admin',
-  director: 'Direttore',
-  musico: 'Musicista',
-  lector: 'Lettore',
-};
+import { ROLE_LABEL, type ChurchRole } from './roles';
 
 async function baseUrl(): Promise<string> {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -65,7 +59,7 @@ export async function createChurch(formData: FormData): Promise<{ error?: string
   redirect(`/churches/${church.slug}`);
 }
 
-type Role = 'admin' | 'director' | 'musico' | 'lector';
+type Role = ChurchRole;
 
 export async function addChurchMember(
   churchId: string,

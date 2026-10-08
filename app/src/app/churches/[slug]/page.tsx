@@ -5,6 +5,7 @@ import { AddMemberForm } from './add-member-form';
 import { BandsSection } from './bands-section';
 import { MemberRoleSelect } from './member-role-select';
 import { RemoveMemberButton } from './remove-member-button';
+import { roleLabel } from '@/lib/churches/roles';
 
 export default async function ChurchPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -54,7 +55,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
       <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white">← Chiese</Link>
       <header className="mt-4 mb-8">
         <h1 className="text-3xl font-bold">{church.name}</h1>
-        <p className="text-zinc-400 text-sm">/{church.slug} · il tuo ruolo: <span className="uppercase">{myRole}</span></p>
+        <p className="text-zinc-400 text-sm">/{church.slug} · il tuo ruolo: {roleLabel(myRole)}</p>
       </header>
 
       <section className="mb-8">
@@ -99,7 +100,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
                     role={m.role}
                   />
                 ) : (
-                  <span className="text-xs text-zinc-400 uppercase tracking-wide">{m.role}</span>
+                  <span className="text-xs text-zinc-400 tracking-wide">{roleLabel(m.role)}</span>
                 )}
                 {isAdmin && (
                   <RemoveMemberButton

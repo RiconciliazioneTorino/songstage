@@ -23,7 +23,7 @@ export function SongView({ song, semitones, fontScale = 1, showChords = true }: 
   return (
     <div style={{ fontSize: `${fontScale}em` }}>
       <header className="mb-6">
-        <h1 className="text-2xl font-bold">{song.meta.title ?? 'Sin título'}</h1>
+        <h1 className="text-2xl font-bold">{song.meta.title ?? 'Senza titolo'}</h1>
         {metaParts.length > 0 && (
           <p className="text-sm text-zinc-400 mt-1">{metaParts.join(' · ')}</p>
         )}

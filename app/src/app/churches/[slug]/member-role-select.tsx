@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { updateChurchMemberRole } from '@/lib/churches/actions';
-
-type Role = 'admin' | 'director' | 'musico' | 'lector';
+import { ROLE_LABEL, ROLES, type ChurchRole as Role } from '@/lib/churches/roles';
 
 export function MemberRoleSelect({
   churchId,
@@ -35,13 +34,14 @@ export function MemberRoleSelect({
           }
         });
       }}
-      className="text-xs uppercase tracking-wide bg-transparent border border-border rounded px-2 py-0.5 hover:border-accent focus:border-accent outline-none disabled:opacity-50 cursor-pointer"
+      className="text-xs tracking-wide bg-transparent border border-border rounded px-2 py-0.5 hover:border-accent focus:border-accent outline-none disabled:opacity-50 cursor-pointer"
       title="Cambia ruolo"
     >
-      <option value="admin">ADMIN</option>
-      <option value="director">DIRETTORE</option>
-      <option value="musico">MUSICISTA</option>
-      <option value="lector">LETTORE</option>
+      {ROLES.map((r) => (
+        <option key={r} value={r}>
+          {ROLE_LABEL[r]}
+        </option>
+      ))}
     </select>
   );
 }

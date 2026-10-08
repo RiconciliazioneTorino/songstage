@@ -366,6 +366,7 @@ export async function setCurrentVersion(
       artist: parsed.meta.artist ?? null,
       original_key: parsed.meta.key ?? null,
       default_tempo: Number.isFinite(tempo) ? tempo : null,
+      time_signature: parsed.meta.time ?? null,
     })
     .eq('id', songId);
   if (error) return { error: friendlyError(error, 'Impossibile ripristinare questa versione.') };

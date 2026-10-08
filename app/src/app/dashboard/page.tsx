@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { signOut } from '@/lib/churches/actions';
+import { roleLabel } from '@/lib/churches/roles';
 import { DisplayNameForm } from './display-name-form';
 
 export default async function Dashboard() {
@@ -67,7 +68,7 @@ export default async function Dashboard() {
                   <h2 className="font-semibold text-lg">{c.name}</h2>
                   <p className="text-xs text-zinc-500">/{c.slug}</p>
                 </div>
-                <span className="text-xs text-zinc-400 uppercase tracking-wide">{c.role}</span>
+                <span className="text-xs text-zinc-400 tracking-wide">{roleLabel(c.role)}</span>
               </div>
             </Link>
           ))}

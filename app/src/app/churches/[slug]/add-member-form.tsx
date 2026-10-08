@@ -7,8 +7,9 @@ import {
   inviteChurchMember,
   searchUsersForChurch,
 } from '@/lib/churches/actions';
+import { ROLE_LABEL, ROLES, roleLabel, type ChurchRole } from '@/lib/churches/roles';
 
-type Role = 'admin' | 'director' | 'musico' | 'lector';
+type Role = ChurchRole;
 type Candidate = { id: string; email: string; display_name: string | null };
 type Invitation = { id: string; email: string; role: Role; created_at: string };
 
@@ -103,10 +104,11 @@ export function AddMemberForm({
           onChange={(e) => setRole(e.target.value as Role)}
           className="px-3 py-2 rounded-md bg-bg border border-border outline-none text-sm"
         >
-          <option value="admin">Admin</option>
-          <option value="director">Direttore</option>
-          <option value="musico">Musicista</option>
-          <option value="lector">Lettore</option>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABEL[r]}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -169,7 +171,7 @@ export function AddMemberForm({
               >
                 <div>
                   <span className="font-mono">{inv.email}</span>
-                  <span className="ml-2 text-xs text-zinc-500 uppercase">{inv.role}</span>
+                  <span className="ml-2 text-xs text-zinc-500">{roleLabel(inv.role)}</span>
                 </div>
                 <button
                   type="button"

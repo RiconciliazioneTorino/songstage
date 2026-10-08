@@ -14,9 +14,9 @@
  *     merging on top of the plain text.
  */
 
-type Item = { str: string; transform: number[]; width: number; height: number };
+export type Item = { str: string; transform: number[]; width: number; height: number };
 
-function medianCharWidth(items: Item[]): number {
+export function medianCharWidth(items: Item[]): number {
   const widths: number[] = [];
   for (const it of items) {
     const n = it.str.length;
@@ -27,7 +27,7 @@ function medianCharWidth(items: Item[]): number {
   return widths[Math.floor(widths.length / 2)];
 }
 
-function detectGutter(items: Item[], pageWidth: number): number | null {
+export function detectGutter(items: Item[], pageWidth: number): number | null {
   if (items.length < 20) return null;
   const BANDS = 60;
   const bandW = pageWidth / BANDS;
@@ -71,7 +71,7 @@ function detectGutter(items: Item[], pageWidth: number): number | null {
   return ((bestStart + bestEnd) / 2) * bandW;
 }
 
-function buildFlow(items: Item[], charW: number): string[] {
+export function buildFlow(items: Item[], charW: number): string[] {
   // Group items into rows by Y (±2 unit tolerance)
   const rows = new Map<number, Item[]>();
   for (const it of items) {
@@ -144,7 +144,7 @@ const NUMBERED_SECTION_RE = new RegExp(
  * "Pre-chorus"). Only applies when the whole trimmed line matches a known
  * section pattern — regular lyrics are left alone.
  */
-function sectionizeLines(lines: string[]): string[] {
+export function sectionizeLines(lines: string[]): string[] {
   return lines.map((line) => {
     const t = line.trim();
     if (!t || t.endsWith(':')) return line;

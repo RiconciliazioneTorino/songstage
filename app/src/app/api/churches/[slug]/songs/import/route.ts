@@ -70,7 +70,7 @@ export async function POST(
       .select('id')
       .single();
     if (vErr || !version) {
-      failed.push({ title: row.title, error: `versión: ${vErr?.message ?? 'unknown'}` });
+      failed.push({ title: row.title, error: `versione: ${vErr?.message ?? 'errore sconosciuto'}` });
       continue;
     }
 
