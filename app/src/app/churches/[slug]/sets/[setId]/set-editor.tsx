@@ -231,15 +231,17 @@ function SortableRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`py-2 px-2 flex items-start gap-2 bg-panel sm:items-center sm:gap-3 ${
-        isDragging ? 'relative z-10 opacity-80 shadow-lg' : ''
+        isDragging ? 'dragging-row relative z-10 opacity-80 shadow-lg' : ''
       }`}
     >
       <button
         {...attributes}
         {...listeners}
+        // The same long press opens the context menu on Android.
+        onContextMenu={(e) => e.preventDefault()}
         title="Trascina per riordinare"
         aria-label={`Riordina ${item.song.title}`}
-        className="px-2 py-2 -my-1 text-zinc-500 hover:text-accent cursor-grab active:cursor-grabbing touch-none text-base leading-none"
+        className="drag-handle px-2 py-2 -my-1 text-zinc-500 hover:text-accent cursor-grab active:cursor-grabbing text-base leading-none"
       >
         ⠿
       </button>

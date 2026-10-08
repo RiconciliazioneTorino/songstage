@@ -1748,15 +1748,17 @@ function SetlistRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center ${isDragging ? 'relative z-10 opacity-80' : ''}`}
+      className={`flex items-center ${isDragging ? 'dragging-row relative z-10 opacity-80' : ''}`}
     >
       {draggable && (
         <button
           {...attributes}
           {...listeners}
+          // The same long press opens the context menu on Android.
+          onContextMenu={(e) => e.preventDefault()}
           aria-label={`Riordina ${slide.title}`}
           title="Trascina per riordinare"
-          className="px-1 text-zinc-600 hover:text-accent cursor-grab active:cursor-grabbing touch-none text-xs leading-none"
+          className="drag-handle px-2 py-2 text-zinc-600 hover:text-accent cursor-grab active:cursor-grabbing text-sm leading-none"
         >
           ⠿
         </button>

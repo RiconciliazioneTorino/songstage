@@ -36,6 +36,25 @@ html, body {
    leaving a run of blank space in the lyrics-only view. */
 .no-chords .pair.chord-only { display: none; }
 
+/* The drag handle is held down, not tapped, and a long press is exactly what
+   iOS reads as "select this text" — it pops the selection and the callout
+   menu over the row being dragged. touch-action alone governs the gesture,
+   not the selection, so both have to be turned off here. */
+.drag-handle {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* While a row is being dragged, keep the press from selecting its lyrics or
+   title either. */
+.dragging-row, .dragging-row * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .section-label {
   color: var(--section-color);
   font-weight: bold;
