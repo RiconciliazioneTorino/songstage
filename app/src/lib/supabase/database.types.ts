@@ -908,6 +908,10 @@ export type Database = {
         Returns: boolean;
       };
       heartbeat_set_master: { Args: { p_set_id: string }; Returns: undefined };
+      reorder_set_items: {
+        Args: { p_item_ids: string[]; p_set_id: string };
+        Returns: undefined;
+      };
       invite_church_member: {
         Args: {
           p_church_id: string;
