@@ -43,6 +43,19 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
 const CHORD_COLOR_KEY = 'songstage:chord-color';
 const SECTION_COLOR_KEY = 'songstage:section-color';
+/**
+ * Text size belongs to the screen, not to the set: a phone, a laptop at the
+ * keyboard and a projector all want different sizes, and the person holding
+ * each one is the only one who can judge. So it persists per device and a
+ * leader's size is no longer pushed onto the people following.
+ */
+const FONT_SCALE_KEY = 'songstage:font-scale';
+/**
+ * What the congregation's screen gets. Separate from this device's own size:
+ * the projector has no controls of its own, so the leader sizes it from here,
+ * and a leader squinting at a phone must not shrink the wall.
+ */
+const PROJECTOR_FONT_SCALE_KEY = 'songstage:projector-font-scale';
 const DEFAULT_CHORD_COLOR = '#4ade80';
 const DEFAULT_SECTION_COLOR = '#fbbf24';
 
@@ -117,6 +130,7 @@ export function Master({
   const [index, setIndex] = useState(0);
   const [slidesLocal, setSlidesLocal] = useState(slides);
   const [fontScale, setFontScale] = useState(1);
+  const [projectorFontScale, setProjectorFontScale] = useState(1);
   const [showChords, setShowChords] = useState(true);
   const [editing, setEditing] = useState(false);
   const [editBody, setEditBody] = useState('');
@@ -221,7 +235,7 @@ export function Master({
     itemId: currentSlide?.itemId ?? null,
     index,
     transpose: currentTranspose,
-    fontScale,
+    fontScale: projectorFontScale,
     showChords,
   });
   useEffect(() => {
@@ -229,10 +243,10 @@ export function Master({
       itemId: currentSlide?.itemId ?? null,
       index,
       transpose: currentTranspose,
-      fontScale,
+      fontScale: projectorFontScale,
       showChords,
     };
-  }, [currentSlide, index, currentTranspose, fontScale, showChords]);
+  }, [currentSlide, index, currentTranspose, projectorFontScale, showChords]);
 
   const metronomeStateRef = useRef<MetronomeUpdate>({
     running: metronomeRunning,
@@ -316,6 +330,28 @@ export function Master({
       localStorage.setItem(SECTION_COLOR_KEY, sectionColor);
     } catch {}
   }, [chordColor, sectionColor]);
+
+  // Restore this device's text size, and the projection size this device sets
+  useEffect(() => {
+    try {
+      const mine = Number.parseFloat(localStorage.getItem(FONT_SCALE_KEY) ?? '');
+      if (Number.isFinite(mine) && mine > 0) setFontScale(mine);
+      const proj = Number.parseFloat(
+        localStorage.getItem(PROJECTOR_FONT_SCALE_KEY) ?? ''
+      );
+      if (Number.isFinite(proj) && proj > 0) setProjectorFontScale(proj);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(FONT_SCALE_KEY, String(fontScale));
+    } catch {}
+  }, [fontScale]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROJECTOR_FONT_SCALE_KEY, String(projectorFontScale));
+    } catch {}
+  }, [projectorFontScale]);
 
   // Restore local emit-metronome preference
   useEffect(() => {
@@ -442,7 +478,9 @@ export function Master({
       } else {
         setIndex(next);
       }
-      setFontScale(p.fontScale);
+      // p.fontScale is deliberately ignored: this screen's size is this
+      // device's business. The unattended projector still follows the leader,
+      // since nobody is standing at it to adjust anything.
       setShowChords(p.showChords);
       if (typeof p.transpose === 'number') setFollowerTranspose(p.transpose);
       const el = scrollRef.current;
@@ -610,7 +648,7 @@ export function Master({
         itemId: slidesLocal[index]?.itemId ?? null,
         index,
         transpose: currentTranspose,
-        fontScale,
+        fontScale: projectorFontScale,
         showChords,
         scrollFraction: 0,
       },
@@ -631,13 +669,13 @@ export function Master({
         itemId: slidesLocal[index]?.itemId ?? null,
         index,
         transpose: currentTranspose,
-        fontScale,
+        fontScale: projectorFontScale,
         showChords,
         scrollFraction: scrollFractionRef.current,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTranspose, fontScale, showChords]);
+  }, [currentTranspose, projectorFontScale, showChords]);
 
   function onContentScroll() {
     if (roleRef.current !== 'master') return;
@@ -658,7 +696,7 @@ export function Master({
           itemId: slidesLocal[index]?.itemId ?? null,
           index,
           transpose: currentTranspose,
-          fontScale,
+          fontScale: projectorFontScale,
           showChords,
           scrollFraction: scrollFractionRef.current,
         },
@@ -735,7 +773,7 @@ export function Master({
         itemId: currentItemId ?? null,
         index: stillAt !== -1 ? stillAt : index,
         transpose: currentTranspose,
-        fontScale,
+        fontScale: projectorFontScale,
         showChords,
         scrollFraction: scrollFractionRef.current,
       },
@@ -986,18 +1024,41 @@ export function Master({
           <button
             onClick={() => setFontScale((f) => Math.max(0.6, f - 0.1))}
             className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="Diminuisci carattere"
+            title="Diminuisci carattere su questo schermo"
           >
             A−
           </button>
           <button
             onClick={() => setFontScale((f) => Math.min(3, f + 0.1))}
             className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="Ingrandisci carattere"
+            title="Ingrandisci carattere su questo schermo"
           >
             A+
           </button>
         </div>
+
+        {isMaster && (
+          <div className="flex items-center gap-1" title="Carattere sullo schermo di proiezione">
+            <span className="text-xs text-zinc-500 px-1">📽</span>
+            <button
+              onClick={() => setProjectorFontScale((f) => Math.max(0.6, f - 0.1))}
+              className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+              title="Rimpicciolisci la proiezione"
+            >
+              A−
+            </button>
+            <span className="text-xs h-9 px-1 min-w-[2.5rem] text-center font-mono flex items-center justify-center text-zinc-400">
+              {Math.round(projectorFontScale * 100)}%
+            </span>
+            <button
+              onClick={() => setProjectorFontScale((f) => Math.min(3, f + 0.1))}
+              className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+              title="Ingrandisci la proiezione"
+            >
+              A+
+            </button>
+          </div>
+        )}
 
         {slide.availableVariations.length > 0 && (
           <select
