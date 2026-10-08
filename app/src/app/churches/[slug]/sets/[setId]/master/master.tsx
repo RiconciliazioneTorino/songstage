@@ -17,7 +17,8 @@ import {
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -763,8 +764,12 @@ export function Master({
   });
 
   const sortSensors = useSensors(
-    // A threshold keeps a tap meant to jump to a song from starting a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // A small movement is enough to mean "drag" with a mouse.
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Touch is different: the list scrolls, and a finger that starts on the
+    // handle is usually trying to scroll past it. Waiting for a short hold
+    // tells the two apart, and gives the press somewhere to register.
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -978,9 +983,12 @@ export function Master({
         } as React.CSSProperties
       }
     >
+      {/* On a phone this bar wrapped into eight stacked rows and ate most of
+          the screen. One row that scrolls sideways keeps every control
+          reachable and gives the song back its space. */}
       <div
         data-no-print
-        className="border-b border-border bg-panel p-3 flex flex-wrap gap-3 items-center"
+        className="border-b border-border bg-panel p-3 flex gap-3 items-center max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:[&>*]:shrink-0 sm:flex-wrap"
         style={{
           paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
           paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
@@ -1407,9 +1415,9 @@ export function Master({
         </div>
       )}
 
-      <div data-no-print className="flex-1 flex overflow-hidden">
+      <div data-no-print className="flex-1 flex overflow-hidden relative">
         {sidebarOpen && (
-          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0">
+          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0 max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-20 max-sm:bg-panel max-sm:shadow-2xl">
             {reorderError && (
               <div className="m-2 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-300">
                 {reorderError}
