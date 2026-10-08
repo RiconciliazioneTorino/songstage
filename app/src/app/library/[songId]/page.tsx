@@ -44,9 +44,7 @@ export default async function CanonicalSongPage({
     .eq('user_id', user.id)
     .in('role', ['admin', 'director']);
 
-  const adoptableChurches = (myChurches ?? [])
-    .map((m: any) => m.church)
-    .filter((c: any) => c) as { id: string; slug: string; name: string }[];
+  const adoptableChurches = (myChurches ?? []).flatMap((m) => (m.church ? [m.church] : []));
 
   const { data: adoptions } = await supabase
     .from('songs')
@@ -66,7 +64,7 @@ export default async function CanonicalSongPage({
           isCurator={isCurator}
           adoptableChurches={adoptableChurches}
           adoptions={
-            (adoptions ?? []).map((a: any) => ({
+            (adoptions ?? []).map((a) => ({
               id: a.id,
               churchSlug: a.church?.slug ?? '',
               churchName: a.church?.name ?? '',

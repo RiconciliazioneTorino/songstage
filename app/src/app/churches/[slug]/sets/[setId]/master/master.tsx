@@ -785,10 +785,12 @@ export function Master({
   return (
     <main
       className="h-dvh flex flex-col"
-      style={{
-        ['--chord-color' as any]: chordColor,
-        ['--section-color' as any]: sectionColor,
-      }}
+      style={
+        {
+          '--chord-color': chordColor,
+          '--section-color': sectionColor,
+        } as React.CSSProperties
+      }
     >
       <div
         data-no-print

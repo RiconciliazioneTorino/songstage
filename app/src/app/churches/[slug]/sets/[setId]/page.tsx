@@ -52,39 +52,42 @@ export default async function SetDetailPage({
     supabase.from('bands').select('id, name').eq('church_id', church.id).order('name'),
   ]);
 
-  const items = itemsRes.data;
   const shares = sharesRes.data;
   const bandShares = bandSharesRes.data;
   const churchBands = churchBandsRes.data;
-  const songs = (songsRes.data ?? []).map((s: any) => ({
-    id: s.id as string,
-    title: s.title as string,
-    artist: s.artist as string | null,
-    original_key: s.original_key as string | null,
+  const songs = (songsRes.data ?? []).map((s) => ({
+    id: s.id,
+    title: s.title,
+    artist: s.artist,
+    original_key: s.original_key,
     isCanonical: s.church_id === null,
   }));
 
+  // Only items whose song survived RLS can be rendered.
+  const items = (itemsRes.data ?? []).flatMap((i) => (i.song ? [{ ...i, song: i.song }] : []));
+
   // Variations visible to the user for the songs in this set
-  const songIds = (items ?? []).map((i: any) => i.song?.id).filter(Boolean);
+  const songIds = items.map((i) => i.song.id);
   const { data: vars } =
     songIds.length > 0
       ? await supabase
           .from('song_variations')
           .select('id, song_id, name, scope, scope_user_id, scope_band_id, band:bands(name)')
           .in('song_id', songIds)
-      : { data: [] as any[] };
+      : { data: [] };
 
-  const variationsBySong = new Map<string, any[]>();
+  type VariationRow = NonNullable<typeof vars>[number];
+  const variationsBySong = new Map<string, VariationRow[]>();
   for (const v of vars ?? []) {
     const list = variationsBySong.get(v.song_id) ?? [];
     list.push(v);
     variationsBySong.set(v.song_id, list);
   }
   // Attach variations to items
-  const itemsWithVariations = ((items as any[]) ?? []).map((i) => ({
+  const itemsWithVariations = items.map((i) => ({
     ...i,
-    isCanonical: i.song?.church_id === null,
-    availableVariations: variationsBySong.get(i.song?.id) ?? [],
+    isCanonical: i.song.church_id === null,
+    availableVariations: variationsBySong.get(i.song.id) ?? [],
   }));
 
   return (
@@ -93,20 +96,20 @@ export default async function SetDetailPage({
         ← Set
       </Link>
       <div className="mt-4">
-        <SetHeader slug={church.slug} set={set as any} />
+        <SetHeader slug={church.slug} set={set} />
       </div>
 
       <SetEditor
         setId={set.id}
-        items={itemsWithVariations as any}
+        items={itemsWithVariations}
         availableSongs={songs}
       />
 
       <SharePanel
         setId={set.id}
-        shares={(shares as any) ?? []}
-        bandShares={(bandShares as any) ?? []}
-        availableBands={(churchBands as any) ?? []}
+        shares={shares ?? []}
+        bandShares={bandShares ?? []}
+        availableBands={churchBands ?? []}
       />
     </main>
   );

@@ -47,7 +47,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
         .select('id, email, role, created_at')
         .eq('church_id', church.id)
         .order('created_at', { ascending: false })
-    : { data: [] as any[] };
+    : { data: [] };
 
   return (
     <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
@@ -82,7 +82,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
           <span className="text-xs text-zinc-500">{members?.length ?? 0}</span>
         </div>
         <div className="space-y-2">
-          {(members ?? []).map((m: any) => (
+          {(members ?? []).flatMap((m) => (m.user ? [{ ...m, user: m.user }] : [])).map((m) => (
             <div
               key={m.user.id}
               className="flex items-center justify-between rounded-md border border-border bg-panel px-3 py-2"
@@ -116,7 +116,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
         {isAdmin && (
           <AddMemberForm
             churchId={church.id}
-            invitations={(invitations ?? []) as any}
+            invitations={invitations ?? []}
           />
         )}
       </section>
@@ -124,7 +124,7 @@ export default async function ChurchPage({ params }: { params: Promise<{ slug: s
       <section className="mt-10">
         <BandsSection
           churchSlug={church.slug}
-          bands={(bands as any) ?? []}
+          bands={bands ?? []}
           canManage={canManageBands}
         />
       </section>

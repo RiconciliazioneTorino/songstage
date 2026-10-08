@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { Master } from './master';
+import { Master, type Slide, type SlideVariation } from './master';
 
 export default async function MasterPage({
   params,
@@ -45,32 +45,33 @@ export default async function MasterPage({
     ]);
   const canBeMaster = !!isOwnerOrLead || !!canWriteShared;
 
-  const itemList = (items ?? []) as any[];
+  // Only items whose song survived RLS are projectable.
+  const itemList = (items ?? []).flatMap((i) => (i.song ? [{ ...i, song: i.song }] : []));
   const versionIds = itemList
-    .map((i) => i.song?.current_version_id)
+    .map((i) => i.song.current_version_id)
     .filter((v): v is string => !!v);
-  const songIds = itemList.map((i) => i.song?.id).filter(Boolean);
+  const songIds = itemList.map((i) => i.song.id);
 
   // Current bodies and every variation the user can see for these songs, so the
   // leader can switch variation without another round trip.
   const [versionsRes, allVarsRes] = await Promise.all([
     versionIds.length > 0
       ? supabase.from('song_versions').select('id, body_onsong').in('id', versionIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : { data: [] },
     songIds.length > 0
       ? supabase
           .from('song_variations')
           .select('id, song_id, name, scope, body_onsong, band:bands(name)')
           .in('song_id', songIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : { data: [] },
   ]);
 
   const versionsById = new Map<string, string>();
   for (const v of versionsRes.data ?? []) versionsById.set(v.id, v.body_onsong);
 
-  const variationsBySong = new Map<string, any[]>();
+  const variationsBySong = new Map<string, SlideVariation[]>();
   const variationBodiesById = new Map<string, string>();
-  for (const v of (allVarsRes.data ?? []) as any[]) {
+  for (const v of allVarsRes.data ?? []) {
     const list = variationsBySong.get(v.song_id) ?? [];
     list.push({
       id: v.id,
@@ -82,17 +83,17 @@ export default async function MasterPage({
     variationBodiesById.set(v.id, v.body_onsong);
   }
 
-  const slides = itemList.map((i) => ({
-    itemId: i.id as string,
-    songId: i.song.id as string,
-    variationId: (i.variation_id as string | null) ?? null,
-    title: i.song.title as string,
-    artist: i.song.artist as string | null,
-    originalKey: i.song.original_key as string | null,
-    songTempo: (i.song.default_tempo as number | null) ?? null,
-    songTimeSignature: (i.song.time_signature as string | null) ?? null,
+  const slides: Slide[] = itemList.map((i) => ({
+    itemId: i.id,
+    songId: i.song.id,
+    variationId: i.variation_id,
+    title: i.song.title,
+    artist: i.song.artist,
+    originalKey: i.song.original_key,
+    songTempo: i.song.default_tempo,
+    songTimeSignature: i.song.time_signature,
     isCanonical: i.song.church_id === null,
-    transpose: i.transpose_semitones as number,
+    transpose: i.transpose_semitones,
     baseBody: versionsById.get(i.song.current_version_id ?? '') ?? '',
     body:
       (i.variation_id ? variationBodiesById.get(i.variation_id) : null) ??

@@ -1,4 +1,6 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient, type CookieOptions } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from './database.types';
 
 const LS_PREFIX = 'sb-auth:';
 
@@ -19,7 +21,7 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
 }
 
-function writeCookie(name: string, value: string, options: any) {
+function writeCookie(name: string, value: string, options: CookieOptions) {
   if (typeof document === 'undefined') return;
   const parts = [`${encodeURIComponent(name)}=${encodeURIComponent(value)}`];
   const maxAge = options?.maxAge ?? 60 * 60 * 24 * 400; // 400 days
@@ -31,11 +33,11 @@ function writeCookie(name: string, value: string, options: any) {
   document.cookie = parts.join('; ');
 }
 
-function deleteCookie(name: string, options: any) {
+function deleteCookie(name: string, options: CookieOptions) {
   writeCookie(name, '', { ...options, maxAge: 0 });
 }
 
-export function createClient() {
+export function createClient(): SupabaseClient<Database> {
   // Hydrate cookies from localStorage BEFORE the client reads them
   // (iOS PWA can drop cookies between launches; localStorage survives).
   if (typeof window !== 'undefined') {
@@ -53,7 +55,7 @@ export function createClient() {
     }
   }
 
-  return createBrowserClient(
+  return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -71,7 +73,7 @@ export function createClient() {
               };
             });
         },
-        setAll(cookiesToSet: { name: string; value: string; options: any }[]) {
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
           const ls = safeLocal();
           for (const { name, value, options } of cookiesToSet) {
             if (value) {
@@ -93,5 +95,5 @@ export function createClient() {
         },
       },
     }
-  );
+  ) as unknown as SupabaseClient<Database>; // see server.ts for why
 }

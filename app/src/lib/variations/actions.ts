@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { friendlyError } from '@/lib/errors';
+import type { TablesUpdate } from '@/lib/supabase/database.types';
 
 async function getCurrentBody(songId: string): Promise<string> {
   const supabase = await createClient();
@@ -103,7 +104,7 @@ export async function updateVariation(
   patch: { body_onsong?: string; name?: string }
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const clean: Record<string, unknown> = {};
+  const clean: TablesUpdate<'song_variations'> = {};
   if (patch.body_onsong !== undefined) {
     if (!patch.body_onsong.trim()) return { error: 'Il body non può essere vuoto' };
     clean.body_onsong = patch.body_onsong;

@@ -24,49 +24,41 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
     .order('event_date', { ascending: false, nullsFirst: false });
 
   const list = sets ?? [];
-  const setIds = list.map((s: any) => s.id);
+  const setIds = list.map((s) => s.id);
   const creatorIds = Array.from(
-    new Set(list.map((s: any) => s.created_by).filter(Boolean))
+    new Set(list.map((s) => s.created_by).filter((id): id is string => !!id))
   );
 
   // Creators + counts fetched in parallel — they don't depend on each other.
   const [creatorsRes, itemsRes] = await Promise.all([
     creatorIds.length > 0
-      ? supabase
-          .from('users')
-          .select('id, email, display_name')
-          .in('id', creatorIds)
-      : Promise.resolve({ data: [] as any[] }),
+      ? supabase.from('users').select('id, email, display_name').in('id', creatorIds)
+      : { data: [] },
     setIds.length > 0
       ? supabase.from('set_items').select('set_id').in('set_id', setIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : { data: [] },
   ]);
 
-  const creatorsMap = new Map<string, { email: string; display_name: string | null }>();
-  for (const c of creatorsRes.data ?? []) {
-    creatorsMap.set(c.id as string, {
-      email: c.email as string,
-      display_name: c.display_name as string | null,
-    });
-  }
+  const creatorsMap = new Map(
+    (creatorsRes.data ?? []).map((c) => [c.id, c] as const)
+  );
 
   const countsMap = new Map<string, number>();
   for (const it of itemsRes.data ?? []) {
-    const sid = it.set_id as string;
-    countsMap.set(sid, (countsMap.get(sid) ?? 0) + 1);
+    countsMap.set(it.set_id, (countsMap.get(it.set_id) ?? 0) + 1);
   }
 
   const now = Date.now();
-  const rows = list.map((s: any) => {
+  const rows = list.map((s) => {
     const heartbeat = s.active_master_heartbeat_at
       ? new Date(s.active_master_heartbeat_at).getTime()
       : 0;
-    const creator = creatorsMap.get(s.created_by);
+    const creator = s.created_by ? creatorsMap.get(s.created_by) : undefined;
     return {
-      id: s.id as string,
-      name: s.name as string,
-      event_date: s.event_date as string | null,
-      event_type: s.event_type as string | null,
+      id: s.id,
+      name: s.name,
+      event_date: s.event_date,
+      event_type: s.event_type,
       creatorLabel: creator?.display_name || creator?.email || '',
       itemsCount: countsMap.get(s.id) ?? 0,
       isLive: heartbeat > 0 && now - heartbeat < LIVE_THRESHOLD_MS,

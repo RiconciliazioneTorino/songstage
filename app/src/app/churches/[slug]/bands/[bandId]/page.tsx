@@ -61,8 +61,8 @@ export default async function BandDetailPage({
         churchSlug={church.slug}
         bandId={band.id}
         bandName={band.name}
-        bandMembers={(bandMembers as any) ?? []}
-        churchMembers={(churchMembers as any) ?? []}
+        bandMembers={bandMembers ?? []}
+        churchMembers={churchMembers ?? []}
         canManage={canManage}
       />
     </main>

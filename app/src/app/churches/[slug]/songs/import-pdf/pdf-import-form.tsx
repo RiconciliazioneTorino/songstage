@@ -29,8 +29,8 @@ export function PdfImportForm({ slug }: { slug: string }) {
       // Guess title from first non-empty line
       const first = text.split('\n').find((l) => l.trim());
       if (first && !title) setTitle(first.trim());
-    } catch (e: any) {
-      setError(e?.message ?? 'Errore durante l\'estrazione');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Errore durante l\'estrazione');
     } finally {
       setExtracting(false);
     }

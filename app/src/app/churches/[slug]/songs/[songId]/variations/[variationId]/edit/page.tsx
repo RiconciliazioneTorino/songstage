@@ -20,9 +20,10 @@ export default async function EditVariationPage({
     .maybeSingle();
   if (!variation || variation.song_id !== songId) notFound();
 
-  const v = variation as any;
   const scopeLabel =
-    v.scope === 'user' ? 'Variante personale' : `Variante gruppo ${v.band?.name ?? ''}`;
+    variation.scope === 'user'
+      ? 'Variante personale'
+      : `Variante gruppo ${variation.band?.name ?? ''}`;
 
   return (
     <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
@@ -41,8 +42,8 @@ export default async function EditVariationPage({
         slug={slug}
         songId={songId}
         variationId={variationId}
-        initialName={v.name}
-        initialBody={v.body_onsong}
+        initialName={variation.name}
+        initialBody={variation.body_onsong}
       />
     </main>
   );

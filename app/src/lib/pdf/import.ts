@@ -154,7 +154,7 @@ function sectionizeLines(lines: string[]): string[] {
 }
 
 export async function extractTextFromPdf(file: File | Blob): Promise<string> {
-  const pdfjs: any = await import('pdfjs-dist');
+  const pdfjs = await import('pdfjs-dist');
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
     import.meta.url
@@ -167,7 +167,11 @@ export async function extractTextFromPdf(file: File | Blob): Promise<string> {
     const page = await doc.getPage(p);
     const viewport = page.getViewport({ scale: 1 });
     const content = await page.getTextContent();
-    const items = (content.items as Item[]).filter((it) => it.str != null);
+    // getTextContent() interleaves TextItem with TextMarkedContent markers,
+    // which carry no geometry — keep only the ones with actual text.
+    const items: Item[] = content.items.flatMap((it) =>
+      'str' in it && it.str != null ? [it] : []
+    );
     if (items.length === 0) continue;
 
     const charW = medianCharWidth(items);

@@ -99,7 +99,7 @@ export async function searchUsersForChurch(
     p_query: query,
   });
   if (error) return { error: friendlyError(error, 'Ricerca non disponibile.') };
-  return { users: (data ?? []) as any };
+  return { users: data ?? [] };
 }
 
 export async function inviteChurchMember(

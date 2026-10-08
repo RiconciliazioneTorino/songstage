@@ -22,10 +22,9 @@ export default async function Dashboard() {
     .select('role, church:churches(id, slug, name)')
     .eq('user_id', user.id);
 
-  const churches = (memberships ?? []).map((m: any) => ({
-    ...m.church,
-    role: m.role as 'admin' | 'director' | 'musico' | 'lector',
-  }));
+  const churches = (memberships ?? []).flatMap((m) =>
+    m.church ? [{ ...m.church, role: m.role }] : []
+  );
   const isChurchAdmin = churches.some((c) => c.role === 'admin');
   const showLibrary = isCurator || isChurchAdmin;
 

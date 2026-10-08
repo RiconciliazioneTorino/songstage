@@ -73,9 +73,10 @@ export class Metronome {
 
   private ensureContext() {
     if (this.ctx) return;
-    const Ctor =
-      (typeof window !== 'undefined' && (window as any).AudioContext) ||
-      (typeof window !== 'undefined' && (window as any).webkitAudioContext);
+    if (typeof window === 'undefined') return;
+    // Safari still only exposes the prefixed constructor.
+    const w = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+    const Ctor = w.AudioContext ?? w.webkitAudioContext;
     if (!Ctor) return;
     this.ctx = new Ctor();
   }

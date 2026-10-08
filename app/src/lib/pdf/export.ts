@@ -8,8 +8,9 @@
  * containers without going through the browser print dialog.
  */
 export async function exportElementToPdf(element: HTMLElement, filename: string) {
-  const mod: any = await import('html2pdf.js' as any);
-  const html2pdf = mod.default ?? mod;
+  const mod = await import('html2pdf.js');
+  // The UMD build is sometimes the namespace itself rather than `.default`.
+  const html2pdf = mod.default ?? (mod as unknown as typeof mod.default);
   const root = document.documentElement;
   root.setAttribute('data-pdf-exporting', '1');
   try {

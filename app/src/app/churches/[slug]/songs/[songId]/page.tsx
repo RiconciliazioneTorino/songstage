@@ -32,11 +32,9 @@ export default async function SongPage({
   if (!song) notFound();
   const contextChurch = contextChurchRes.data;
 
-  const rawParent = (song as any).parent as
-    | { id: string; title: string }
-    | { id: string; title: string }[]
-    | null;
-  const parent = Array.isArray(rawParent) ? (rawParent[0] ?? null) : rawParent;
+  // A self-referencing embed can come back as an object or a one-element array
+  // depending on how PostgREST resolves the relationship.
+  const parent = Array.isArray(song.parent) ? (song.parent[0] ?? null) : song.parent;
 
   const contextChurchId = song.church_id ?? contextChurch?.id ?? null;
   const isSongChurchScoped = song.church_id !== null;
@@ -125,17 +123,19 @@ export default async function SongPage({
   const audios = audiosRes.data;
   const variations = variationsRes.data;
 
-  const myBands = ((myBandsRes.data ?? []) as any[])
-    .filter((bm) => bm.band?.church_id === song.church_id)
-    .map((bm) => ({ id: bm.band.id as string, name: bm.band.name as string }));
+  const myBands = (myBandsRes.data ?? []).flatMap((bm) =>
+    bm.band && bm.band.church_id === song.church_id
+      ? [{ id: bm.band.id, name: bm.band.name }]
+      : []
+  );
   const myBandIds = new Set(myBands.map((b) => b.id));
 
   const myUserVariation = (variations ?? []).find(
-    (v: any) => v.scope === 'user' && v.scope_user_id === user.id
-  ) as any;
+    (v) => v.scope === 'user' && v.scope_user_id === user.id
+  );
   const myBandVariations = (variations ?? []).filter(
-    (v: any) => v.scope === 'band' && myBandIds.has(v.scope_band_id)
-  ) as any[];
+    (v) => v.scope === 'band' && v.scope_band_id !== null && myBandIds.has(v.scope_band_id)
+  );
 
   const tracks: Track[] = [
     {
@@ -281,15 +281,17 @@ export default async function SongPage({
           songId={songId}
           hasUserVariation={!!myUserVariation}
           myBands={myBands}
-          bandVariationsBandIds={myBandVariations.map((v) => v.scope_band_id)}
+          bandVariationsBandIds={myBandVariations.flatMap((v) =>
+            v.scope_band_id ? [v.scope_band_id] : []
+          )}
         />
 
-        <AudioPanel songId={songId} audios={(audios as any) ?? []} canEdit={canEdit} />
+        <AudioPanel songId={songId} audios={audios ?? []} canEdit={canEdit} />
         <VersionsPanel
           slug={slug}
           songId={songId}
           currentVersionId={song.current_version_id}
-          versions={(versions as any) ?? []}
+          versions={versions ?? []}
           canEdit={canEdit}
         />
       </div>

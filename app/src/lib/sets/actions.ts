@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { friendlyError } from '@/lib/errors';
+import type { TablesUpdate } from '@/lib/supabase/database.types';
 
 export async function createSet(
   churchSlug: string,
@@ -123,8 +124,10 @@ export async function addSongToSet(
         .from('band_members')
         .select('band_id')
         .eq('user_id', user.id);
-      const myBandIds = new Set((myBands ?? []).map((b: any) => b.band_id));
-      const match = (bandVars ?? []).find((v: any) => myBandIds.has(v.scope_band_id));
+      const myBandIds = new Set((myBands ?? []).map((b) => b.band_id));
+      const match = (bandVars ?? []).find(
+        (v) => v.scope_band_id !== null && myBandIds.has(v.scope_band_id)
+      );
       variationId = match?.id ?? null;
     }
   }
@@ -189,7 +192,7 @@ export async function updateSet(
   patch: { name?: string; event_date?: string | null; event_type?: string | null; notes?: string | null }
 ): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const cleanPatch: Record<string, unknown> = {};
+  const cleanPatch: TablesUpdate<'sets'> = {};
   if (patch.name !== undefined) {
     const trimmed = patch.name.trim();
     if (!trimmed) return { error: 'Il nome è obbligatorio' };

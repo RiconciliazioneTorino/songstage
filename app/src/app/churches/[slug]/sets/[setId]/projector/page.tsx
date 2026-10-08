@@ -24,9 +24,10 @@ export default async function ProjectorPage({
     .eq('set_id', setId)
     .order('position');
 
-  const itemList = (items ?? []) as any[];
+  // Only items whose song survived RLS are projectable.
+  const itemList = (items ?? []).flatMap((i) => (i.song ? [{ ...i, song: i.song }] : []));
   const versionIds = itemList
-    .map((i) => i.song?.current_version_id)
+    .map((i) => i.song.current_version_id)
     .filter((v): v is string => !!v);
   const variationIds = itemList
     .map((i) => i.variation_id)
@@ -35,10 +36,10 @@ export default async function ProjectorPage({
   const [versionsRes, variationsRes] = await Promise.all([
     versionIds.length > 0
       ? supabase.from('song_versions').select('id, body_onsong').in('id', versionIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : { data: [] },
     variationIds.length > 0
       ? supabase.from('song_variations').select('id, body_onsong').in('id', variationIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : { data: [] },
   ]);
 
   const versionsById = new Map<string, string>();
@@ -47,16 +48,16 @@ export default async function ProjectorPage({
   for (const v of variationsRes.data ?? []) variationsById.set(v.id, v.body_onsong);
 
   const slides: Slide[] = itemList.map((i) => ({
-    itemId: i.id as string,
-    songId: i.song.id as string,
-    variationId: (i.variation_id as string | null) ?? null,
-    title: i.song.title as string,
-    artist: i.song.artist as string | null,
-    originalKey: i.song.original_key as string | null,
+    itemId: i.id,
+    songId: i.song.id,
+    variationId: i.variation_id,
+    title: i.song.title,
+    artist: i.song.artist,
+    originalKey: i.song.original_key,
     songTempo: null,
     songTimeSignature: null,
     isCanonical: i.song.church_id === null,
-    transpose: i.transpose_semitones as number,
+    transpose: i.transpose_semitones,
     baseBody: '',
     availableVariations: [],
     variationBodies: {},
