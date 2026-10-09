@@ -76,6 +76,26 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
     } catch {}
   }, []);
 
+  // Shout to other tabs on this device: "I'm playing the leader's audio".
+  // The master/sets tab silences itself while the heartbeat is fresh so the
+  // audio doesn't double up when the user has both pages open.
+  useEffect(() => {
+    if (!receiveSharedAudio) return;
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    const ch = new BroadcastChannel('songstage:audio-sink');
+    const send = () =>
+      ch.postMessage({ type: 'claim', from: 'projector', ts: Date.now() });
+    send();
+    const t = setInterval(send, 2000);
+    return () => {
+      clearInterval(t);
+      try {
+        ch.postMessage({ type: 'release', from: 'projector' });
+      } catch {}
+      ch.close();
+    };
+  }, [receiveSharedAudio]);
+
   function toggleReceiveSharedAudio() {
     setReceiveSharedAudio((v) => {
       const next = !v;

@@ -203,6 +203,10 @@ export function Master({
   const [ytSharedUrl, setYtSharedUrl] = useState<string | null>(null);
   const [ytSharedTime, setYtSharedTime] = useState<number | null>(null);
   const [receiveSharedAudio, setReceiveSharedAudio] = useState(false);
+  // Another tab on this device (typically the projector) has claimed the YT
+  // audio sink. Silence this tab's player while the heartbeat is fresh so the
+  // same track doesn't play twice from the same speakers.
+  const [audioClaimedElsewhere, setAudioClaimedElsewhere] = useState(false);
   const [chordColor, setChordColor] = useState(DEFAULT_CHORD_COLOR);
   const [sectionColor, setSectionColor] = useState(DEFAULT_SECTION_COLOR);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -475,6 +479,35 @@ export function Master({
       const v = localStorage.getItem(RECEIVE_SHARED_AUDIO_KEY);
       if (v === '1') setReceiveSharedAudio(true);
     } catch {}
+  }, []);
+
+  // Listen for another tab on this device claiming the audio sink. The
+  // projector heartbeats every 2s; we clear the claim 5s after the last ping.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window))
+      return;
+    const ch = new BroadcastChannel('songstage:audio-sink');
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleClear = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setAudioClaimedElsewhere(false), 5000);
+    };
+    const onMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string } | undefined;
+      if (data?.type === 'claim') {
+        setAudioClaimedElsewhere(true);
+        scheduleClear();
+      } else if (data?.type === 'release') {
+        if (timer) clearTimeout(timer);
+        setAudioClaimedElsewhere(false);
+      }
+    };
+    ch.addEventListener('message', onMessage);
+    return () => {
+      ch.removeEventListener('message', onMessage);
+      ch.close();
+      if (timer) clearTimeout(timer);
+    };
   }, []);
   useEffect(() => {
     try {
@@ -1389,15 +1422,19 @@ export function Master({
         <button
           type="button"
           onClick={() => setReceiveSharedAudio((v) => !v)}
-          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
-            receiveSharedAudio
+          className={`relative h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
+            receiveSharedAudio && !audioClaimedElsewhere
               ? 'border-accent text-accent'
-              : 'border-border text-zinc-500 hover:border-accent'
+              : receiveSharedAudio && audioClaimedElsewhere
+                ? 'border-amber-500 text-amber-400'
+                : 'border-border text-zinc-500 hover:border-accent'
           }`}
           title={
-            receiveSharedAudio
-              ? 'Ricevi audio YouTube del leader: acceso'
-              : 'Ricevi audio YouTube del leader: spento (attivare sul dispositivo collegato al mixer per inviare al click/in-ears)'
+            audioClaimedElsewhere
+              ? 'Audio in riproduzione in un’altra scheda (proiezione) di questo dispositivo'
+              : receiveSharedAudio
+                ? 'Ricevi audio YouTube del leader: acceso'
+                : 'Ricevi audio YouTube del leader: spento (attivare sul dispositivo collegato al mixer per inviare al click/in-ears)'
           }
           aria-pressed={receiveSharedAudio}
         >
@@ -1658,7 +1695,7 @@ export function Master({
                     url={panelUrl}
                     title={panelTitle}
                     playing={ytPlaying}
-                    audible={receiveSharedAudio}
+                    audible={receiveSharedAudio && !audioClaimedElsewhere}
                     canControl={isMaster}
                     followerTime={isMaster ? null : ytSharedTime}
                     onToggle={(next) => {
