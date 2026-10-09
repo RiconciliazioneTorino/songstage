@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { splitByDate, todayInRome } from '@/lib/sets/schedule';
 
 const LIVE_THRESHOLD_MS = 45_000;
 
@@ -65,6 +66,8 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
     };
   });
 
+  const { current, past } = splitByDate(rows, todayInRome());
+
   return (
     <main className="min-h-screen px-4 py-6 sm:p-8 max-w-3xl mx-auto">
       <Link href={`/churches/${church.slug}`} className="text-sm text-zinc-400 hover:text-white">
@@ -88,60 +91,99 @@ export default async function SetsPage({ params }: { params: Promise<{ slug: str
           Nessun set ancora.
         </div>
       ) : (
-        <div className="space-y-2">
-          {rows.map((s) => (
-            <Link
-              key={s.id}
-              href={`/churches/${church.slug}/sets/${s.id}`}
-              className="block rounded-md border border-border bg-panel p-3 hover:border-accent transition"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2 gap-x-3">
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium flex items-center gap-2 flex-wrap">
-                    <span className="truncate">{s.name}</span>
-                    {s.isLive && (
-                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-bold text-red-100 bg-red-600/80 rounded-full px-1.5 py-0.5">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75 animate-ping" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-100" />
-                        </span>
-                        In diretta
-                      </span>
-                    )}
-                  </div>
-                  {s.event_type && (
-                    <div className="text-xs text-zinc-500 mt-0.5">{s.event_type}</div>
-                  )}
-                </div>
-                <div className="flex items-center flex-wrap gap-1.5 sm:flex-shrink-0 sm:justify-end">
-                  {s.event_date && (
-                    <span
-                      title="Data evento"
-                      className="text-xs text-sky-300 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/40 font-mono"
-                    >
-                      {s.event_date}
-                    </span>
-                  )}
-                  <span
-                    title={`${s.itemsCount} ${s.itemsCount === 1 ? 'canzone' : 'canzoni'}`}
-                    className="text-xs text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 font-mono"
-                  >
-                    {s.itemsCount} {s.itemsCount === 1 ? 'canzone' : 'canzoni'}
-                  </span>
-                  {s.creatorLabel && (
-                    <span
-                      title="Creato da"
-                      className="text-xs text-violet-300 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/40"
-                    >
-                      {s.creatorLabel}
-                    </span>
-                  )}
-                </div>
+        <>
+          {current.length > 0 ? (
+            <div className="space-y-2">
+              {current.map((s) => (
+                <SetCard key={s.id} set={s} slug={church.slug} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center text-zinc-500">
+              Nessun set in programma.
+            </div>
+          )}
+
+          {past.length > 0 && (
+            // A plain <details> keeps this a server component: no state, no
+            // JavaScript, and it still works before React has loaded.
+            <details className="mt-6 group">
+              <summary className="cursor-pointer list-none select-none text-sm text-zinc-400 hover:text-white flex items-center gap-2 py-2">
+                <span className="transition-transform group-open:rotate-90" aria-hidden>
+                  ▶
+                </span>
+                Set passati ({past.length})
+              </summary>
+              <div className="space-y-2 mt-2 opacity-70">
+                {past.map((s) => (
+                  <SetCard key={s.id} set={s} slug={church.slug} />
+                ))}
               </div>
-            </Link>
-          ))}
-        </div>
+            </details>
+          )}
+        </>
       )}
     </main>
+  );
+}
+
+type SetRow = {
+  id: string;
+  name: string;
+  event_date: string | null;
+  event_type: string | null;
+  creatorLabel: string;
+  itemsCount: number;
+  isLive: boolean;
+};
+
+function SetCard({ set: s, slug }: { set: SetRow; slug: string }) {
+  return (
+    <Link
+      href={`/churches/${slug}/sets/${s.id}`}
+      className="block rounded-md border border-border bg-panel p-3 hover:border-accent transition"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2 gap-x-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium flex items-center gap-2 flex-wrap">
+            <span className="truncate">{s.name}</span>
+            {s.isLive && (
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-bold text-red-100 bg-red-600/80 rounded-full px-1.5 py-0.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-100" />
+                </span>
+                In diretta
+              </span>
+            )}
+          </div>
+          {s.event_type && <div className="text-xs text-zinc-500 mt-0.5">{s.event_type}</div>}
+        </div>
+        <div className="flex items-center flex-wrap gap-1.5 sm:flex-shrink-0 sm:justify-end">
+          {s.event_date && (
+            <span
+              title="Data evento"
+              className="text-xs text-sky-300 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/40 font-mono"
+            >
+              {s.event_date}
+            </span>
+          )}
+          <span
+            title={`${s.itemsCount} ${s.itemsCount === 1 ? 'canzone' : 'canzoni'}`}
+            className="text-xs text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/40 font-mono"
+          >
+            {s.itemsCount} {s.itemsCount === 1 ? 'canzone' : 'canzoni'}
+          </span>
+          {s.creatorLabel && (
+            <span
+              title="Creato da"
+              className="text-xs text-violet-300 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/40"
+            >
+              {s.creatorLabel}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
   );
 }
