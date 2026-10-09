@@ -106,6 +106,38 @@ export type AvailableSong = {
   isCanonical: boolean;
 };
 
+/** Pyramid metronome with pendulum. When off, overlaid with a slash. */
+function MetronomeIcon({ on }: { on: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M9 4 L15 4 L18 21 L6 21 Z" />
+      <line x1="7" y1="15" x2="17" y2="15" />
+      <line x1="12" y1="15" x2={on ? 16 : 12} y2="6" />
+      <circle cx={on ? 16 : 12} cy="6" r="1.2" fill="currentColor" />
+      {!on && (
+        <line
+          x1="4"
+          y1="22"
+          x2="20"
+          y2="2"
+          stroke="currentColor"
+          strokeWidth={2.2}
+        />
+      )}
+    </svg>
+  );
+}
+
 export function Master({
   setId,
   setName,
@@ -1341,12 +1373,17 @@ export function Master({
           }`}
           title={
             emitMetronome
-              ? 'Emetti metronomo qui: acceso'
-              : 'Emetti metronomo qui: spento (attivare sul dispositivo collegato al mixer)'
+              ? 'Metronomo acustico su questo dispositivo: acceso'
+              : 'Metronomo acustico su questo dispositivo: spento'
           }
           aria-pressed={emitMetronome}
+          aria-label={
+            emitMetronome
+              ? 'Spegni metronomo su questo dispositivo'
+              : 'Accendi metronomo su questo dispositivo'
+          }
         >
-          {emitMetronome ? '🔊' : '🔈'}
+          <MetronomeIcon on={emitMetronome} />
         </button>
 
         <button
