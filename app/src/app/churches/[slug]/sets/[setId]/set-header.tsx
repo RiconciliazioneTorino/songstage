@@ -124,10 +124,10 @@ export function SetHeader({
       </div>
       <div className="flex flex-col items-end gap-2">
         <Link
-          href={`/churches/${slug}/sets/${set.id}/master`}
+          href={`/churches/${slug}/sets/${set.id}/view`}
           className="px-3 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
         >
-          Modalità proiezione ▸
+          Entra nel set ▸
         </Link>
         <div className="flex gap-2">
           <button

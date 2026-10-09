@@ -44,6 +44,10 @@ export default async function MasterPage({
         .order('position'),
     ]);
   const canBeMaster = !!isOwnerOrLead || !!canWriteShared;
+  // The full console is only useful to someone who can actually drive the
+  // set. Everyone else lands on the simplified /view, which can offer a
+  // "Richiedi master" button if they later gain rights.
+  if (!canBeMaster) redirect(`/churches/${slug}/sets/${setId}/view`);
 
   // Only items whose song survived RLS are projectable.
   const itemList = (items ?? []).flatMap((i) => (i.song ? [{ ...i, song: i.song }] : []));
