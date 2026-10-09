@@ -1,25 +1,50 @@
 /**
- * Convert a time-signature string ("4/4", "6/8", …) to the number of audible
- * pulses the metronome should click per bar.
+ * How a time signature maps to metronome ticks.
  *
- * Simple meters (anything that isn't compound): the numerator is the pulse
- * count — 4/4 → 4, 3/4 → 3, 2/2 → 2.
+ * `beatsPerBar` is the chart's audible pulse count: 4 for 4/4, 3 for 3/4,
+ * 2 for 6/8 (the two dotted-quarter pulses), 3 for 9/8, 4 for 12/8.
  *
- * Compound meters (6/8, 9/8, 12/8 — numerator ≥ 6 and divisible by 3,
- * denominator 8 or 16): the stored BPM refers to the dotted-beat pulse, so
- * audible pulses per bar = numerator / 3. 6/8 → 2, 9/8 → 3, 12/8 → 4.
+ * `subdivisionsPerBeat` tells the scheduler how many ticks it should play
+ * between pulses. Simple meters use 1 — only the pulse clicks. Compound
+ * meters use 3, so 6/8 plays as *--*-- with the subdivision audible.
  *
- * Falls back to 4 for empty / malformed input or numerators out of range.
+ * The scheduler combines these with the stored BPM: tick rate =
+ * bpm × subdivisionsPerBeat, ticks per bar = beatsPerBar × subdivisionsPerBeat,
+ * accent every subdivisionsPerBeat ticks.
  */
+export type MetronomePattern = {
+  beatsPerBar: number;
+  subdivisionsPerBeat: number;
+};
+
+const DEFAULT: MetronomePattern = { beatsPerBar: 4, subdivisionsPerBeat: 1 };
+
+export function metronomePattern(
+  sig: string | null | undefined
+): MetronomePattern {
+  const parsed = parseSig(sig);
+  if (!parsed) return DEFAULT;
+  const { num, den } = parsed;
+  if ((den === 8 || den === 16) && num >= 6 && num % 3 === 0) {
+    return { beatsPerBar: num / 3, subdivisionsPerBeat: 3 };
+  }
+  return { beatsPerBar: num, subdivisionsPerBeat: 1 };
+}
+
+/** Audible pulses per bar (for the UI tempo display). */
 export function parseBeatsPerBar(sig: string | null | undefined): number {
-  if (!sig) return 4;
+  return metronomePattern(sig).beatsPerBar;
+}
+
+function parseSig(
+  sig: string | null | undefined
+): { num: number; den: number } | null {
+  if (!sig) return null;
   const m = sig.match(/^\s*(\d+)\s*\/\s*(\d+)/);
-  if (!m) return 4;
+  if (!m) return null;
   const num = parseInt(m[1], 10);
   const den = parseInt(m[2], 10);
-  if (!(num >= 1 && num <= 32)) return 4;
-  if ((den === 8 || den === 16) && num >= 6 && num % 3 === 0) {
-    return num / 3;
-  }
-  return num;
+  if (!(num >= 1 && num <= 32)) return null;
+  if (!(den >= 1 && den <= 32)) return null;
+  return { num, den };
 }

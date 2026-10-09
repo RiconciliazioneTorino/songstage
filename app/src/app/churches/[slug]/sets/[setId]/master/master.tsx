@@ -39,7 +39,7 @@ import {
   type ProjectionState,
 } from '@/lib/sets/projection';
 import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
-import { parseBeatsPerBar } from '@/lib/metronome/time-signature';
+import { metronomePattern } from '@/lib/metronome/time-signature';
 import { exportElementToPdf } from '@/lib/pdf/export';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -157,6 +157,7 @@ export function Master({
   const [metronomeRunning, setMetronomeRunning] = useState(false);
   const [metronomeStartAt, setMetronomeStartAt] = useState(0);
   const [metronomeBeatsPerBar, setMetronomeBeatsPerBar] = useState(4);
+  const [metronomeSubdivisions, setMetronomeSubdivisions] = useState(1);
   const [emitMetronome, setEmitMetronome] = useState(false);
   const [chordColor, setChordColor] = useState(DEFAULT_CHORD_COLOR);
   const [sectionColor, setSectionColor] = useState(DEFAULT_SECTION_COLOR);
@@ -253,6 +254,7 @@ export function Master({
     bpm: metronomeBpm,
     startAt: metronomeStartAt,
     beatsPerBar: metronomeBeatsPerBar,
+    subdivisionsPerBeat: metronomeSubdivisions,
   });
   useEffect(() => {
     metronomeStateRef.current = {
@@ -260,8 +262,15 @@ export function Master({
       bpm: metronomeBpm,
       startAt: metronomeStartAt,
       beatsPerBar: metronomeBeatsPerBar,
+      subdivisionsPerBeat: metronomeSubdivisions,
     };
-  }, [metronomeRunning, metronomeBpm, metronomeStartAt, metronomeBeatsPerBar]);
+  }, [
+    metronomeRunning,
+    metronomeBpm,
+    metronomeStartAt,
+    metronomeBeatsPerBar,
+    metronomeSubdivisions,
+  ]);
 
   useEffect(() => {
     roleRef.current = role;
@@ -283,14 +292,18 @@ export function Master({
     if (role !== 'master') return;
     const slide = slidesLocal[index];
     if (!slide) return;
-    const newBeats = parseBeatsPerBar(slide.songTimeSignature);
+    const pattern = metronomePattern(slide.songTimeSignature);
+    const newBeats = pattern.beatsPerBar;
+    const newSubs = pattern.subdivisionsPerBeat;
     const t = slide.songTempo;
     const tempoChanged = !!(t && t > 0 && t !== metronomeBpm);
     const beatsChanged = newBeats !== metronomeBeatsPerBar;
-    if (!tempoChanged && !beatsChanged) return;
+    const subsChanged = newSubs !== metronomeSubdivisions;
+    if (!tempoChanged && !beatsChanged && !subsChanged) return;
     const nextBpm = tempoChanged ? t! : metronomeBpm;
     if (tempoChanged) setMetronomeBpm(t!);
     if (beatsChanged) setMetronomeBeatsPerBar(newBeats);
+    if (subsChanged) setMetronomeSubdivisions(newSubs);
     const ch = channelRef.current;
     if (metronomeRunning) {
       const startAt = Date.now() + 100;
@@ -298,7 +311,13 @@ export function Master({
       ch?.send({
         type: 'broadcast',
         event: 'metronome_update',
-        payload: { running: true, bpm: nextBpm, startAt, beatsPerBar: newBeats },
+        payload: {
+          running: true,
+          bpm: nextBpm,
+          startAt,
+          beatsPerBar: newBeats,
+          subdivisionsPerBeat: newSubs,
+        },
       });
     } else {
       ch?.send({
@@ -309,6 +328,7 @@ export function Master({
           bpm: nextBpm,
           startAt: metronomeStartAt,
           beatsPerBar: newBeats,
+          subdivisionsPerBeat: newSubs,
         },
       });
     }
@@ -394,11 +414,19 @@ export function Master({
         bpm: metronomeBpm,
         startAt: metronomeStartAt,
         beatsPerBar: metronomeBeatsPerBar,
+        subdivisionsPerBeat: metronomeSubdivisions,
       });
     } else {
       metronomeRef.current.stop();
     }
-  }, [emitMetronome, metronomeRunning, metronomeBpm, metronomeStartAt, metronomeBeatsPerBar]);
+  }, [
+    emitMetronome,
+    metronomeRunning,
+    metronomeBpm,
+    metronomeStartAt,
+    metronomeBeatsPerBar,
+    metronomeSubdivisions,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -478,6 +506,8 @@ export function Master({
       if (typeof p.startAt === 'number' && p.startAt > 0) setMetronomeStartAt(p.startAt);
       if (typeof p.beatsPerBar === 'number' && p.beatsPerBar >= 1)
         setMetronomeBeatsPerBar(p.beatsPerBar);
+      if (typeof p.subdivisionsPerBeat === 'number' && p.subdivisionsPerBeat >= 1)
+        setMetronomeSubdivisions(p.subdivisionsPerBeat);
     });
 
     // viewer applies incoming state so its UI mirrors the master
@@ -847,6 +877,7 @@ export function Master({
         bpm: metronomeBpm,
         startAt: metronomeStartAt,
         beatsPerBar: metronomeBeatsPerBar,
+        subdivisionsPerBeat: metronomeSubdivisions,
       });
     } else {
       const startAt = Date.now() + 200;
@@ -857,6 +888,7 @@ export function Master({
         bpm: metronomeBpm,
         startAt,
         beatsPerBar: metronomeBeatsPerBar,
+        subdivisionsPerBeat: metronomeSubdivisions,
       });
     }
   }
@@ -873,6 +905,7 @@ export function Master({
         bpm: nextBpm,
         startAt,
         beatsPerBar: metronomeBeatsPerBar,
+        subdivisionsPerBeat: metronomeSubdivisions,
       });
     } else {
       broadcastMetronome({
@@ -880,6 +913,7 @@ export function Master({
         bpm: nextBpm,
         startAt: metronomeStartAt,
         beatsPerBar: metronomeBeatsPerBar,
+        subdivisionsPerBeat: metronomeSubdivisions,
       });
     }
   }

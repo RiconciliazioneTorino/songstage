@@ -10,9 +10,17 @@
 
 export type MetronomeUpdate = {
   running: boolean;
+  /** Chart tempo (quarter in simple meters, dotted-quarter in compound). */
   bpm: number;
-  startAt: number; // Date.now() ms of beat index 0
+  /** Date.now() ms of beat index 0. */
+  startAt: number;
+  /** Audible pulses per bar — 4 for 4/4, 2 for 6/8. */
   beatsPerBar?: number;
+  /**
+   * Ticks played between pulses. 1 = pulse-only (simple meters), 3 = eighth
+   * subdivision for compound (6/8 plays *--*--). Defaults to 1.
+   */
+  subdivisionsPerBeat?: number;
 };
 
 const SCHEDULE_AHEAD = 0.15; // seconds
@@ -25,6 +33,7 @@ export class Metronome {
   private bpm = 90;
   private startAt = 0;
   private beatsPerBar = 4;
+  private subdivisionsPerBeat = 1;
   private nextBeatIndex = 0;
   private baseAudioTime = 0; // audio time corresponding to startAt
   private volume = 0.6;
@@ -43,14 +52,15 @@ export class Metronome {
     this.bpm = u.bpm;
     this.startAt = u.startAt;
     this.beatsPerBar = u.beatsPerBar ?? 4;
+    this.subdivisionsPerBeat = Math.max(1, u.subdivisionsPerBeat ?? 1);
     // Anchor: audioTime that corresponds to Date.now() == startAt.
     const now = Date.now();
     const audioNow = this.ctx.currentTime;
     this.baseAudioTime = audioNow - (now - this.startAt) / 1000;
-    // Skip past beats: start scheduling from the next upcoming one.
-    const beatSec = 60 / this.bpm;
-    const elapsedBeats = (now - this.startAt) / 1000 / beatSec;
-    this.nextBeatIndex = Math.max(0, Math.ceil(elapsedBeats));
+    // Skip past ticks: start scheduling from the next upcoming one.
+    const tickSec = 60 / (this.bpm * this.subdivisionsPerBeat);
+    const elapsedTicks = (now - this.startAt) / 1000 / tickSec;
+    this.nextBeatIndex = Math.max(0, Math.ceil(elapsedTicks));
     this.running = true;
     this.startScheduler();
   }
@@ -90,12 +100,13 @@ export class Metronome {
     if (!this.running || !this.ctx) return;
     if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
     const horizon = this.ctx.currentTime + SCHEDULE_AHEAD;
-    const beatSec = 60 / this.bpm;
+    const tickSec = 60 / (this.bpm * this.subdivisionsPerBeat);
     while (true) {
-      const t = this.baseAudioTime + this.nextBeatIndex * beatSec;
+      const t = this.baseAudioTime + this.nextBeatIndex * tickSec;
       if (t > horizon) break;
       if (t >= this.ctx.currentTime - 0.02) {
-        this.scheduleClick(t, this.nextBeatIndex % this.beatsPerBar === 0);
+        // Accent lands on each chart pulse (every subdivisionsPerBeat ticks).
+        this.scheduleClick(t, this.nextBeatIndex % this.subdivisionsPerBeat === 0);
       }
       this.nextBeatIndex++;
     }
