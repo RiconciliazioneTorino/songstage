@@ -39,6 +39,7 @@ import {
   type ProjectionState,
 } from '@/lib/sets/projection';
 import { Metronome, type MetronomeUpdate } from '@/lib/metronome/scheduler';
+import { parseBeatsPerBar } from '@/lib/metronome/time-signature';
 import { exportElementToPdf } from '@/lib/pdf/export';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -64,13 +65,6 @@ const SHOW_CHORDS_KEY = 'songstage:show-chords';
 const DEFAULT_CHORD_COLOR = '#4ade80';
 const DEFAULT_SECTION_COLOR = '#fbbf24';
 
-function parseBeatsPerBar(sig: string | null | undefined): number {
-  if (!sig) return 4;
-  const m = sig.match(/^\s*(\d+)\s*\//);
-  if (!m) return 4;
-  const n = parseInt(m[1], 10);
-  return n >= 1 && n <= 32 ? n : 4;
-}
 
 export type SlideVariation = {
   id: string;
