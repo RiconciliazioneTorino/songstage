@@ -1249,17 +1249,6 @@ export function Master({
 
         <span className="flex-1" />
 
-        <button
-          onClick={() => {
-            setPickerQuery('');
-            setPickerOpen(true);
-          }}
-          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
-          title="Aggiungi canzone al set"
-        >
-          +
-        </button>
-
         {slide.isCanonical && !slide.variationId ? (
           <span
             className="min-w-[2.25rem] h-9 rounded-full border border-border text-lg leading-none flex items-center justify-center opacity-40 cursor-not-allowed"
@@ -1494,6 +1483,21 @@ export function Master({
                       onSelect={() => setIndex(i)}
                     />
                   ))}
+                  {isMaster && (
+                    <li className="mt-1 px-1">
+                      <button
+                        onClick={() => {
+                          setPickerQuery('');
+                          setPickerOpen(true);
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-xs text-zinc-400 hover:border-accent hover:text-accent transition"
+                        title="Aggiungi canzone al set"
+                      >
+                        <span aria-hidden className="text-base leading-none">+</span>
+                        Aggiungi canzone
+                      </button>
+                    </li>
+                  )}
                 </ol>
               </SortableContext>
             </DndContext>
