@@ -1,23 +1,31 @@
 /**
- * How a time signature maps to metronome ticks.
+ * Convert a time signature into the three numbers the scheduler needs to
+ * tick a chart at its stored BPM.
  *
- * `beatsPerBar` is the chart's audible pulse count: 4 for 4/4, 3 for 3/4,
- * 2 for 6/8 (the two dotted-quarter pulses), 3 for 9/8, 4 for 12/8.
+ * The chart BPM is always the **quarter-note rate** — the way worship sheets
+ * mean it. 6/8 at 70 BPM means ♩ = 70, which gives a 2.57-second bar with
+ * eighth-note ticks at 140 and accents on each dotted-beat (`*--*--`).
  *
- * `subdivisionsPerBeat` tells the scheduler how many ticks it should play
- * between pulses. Simple meters use 1 — only the pulse clicks. Compound
- * meters use 3, so 6/8 plays as *--*-- with the subdivision audible.
- *
- * The scheduler combines these with the stored BPM: tick rate =
- * bpm × subdivisionsPerBeat, ticks per bar = beatsPerBar × subdivisionsPerBeat,
- * accent every subdivisionsPerBeat ticks.
+ * - `beatsPerBar` — pulses the listener feels per bar (4 for 4/4, 3 for 3/4,
+ *   2 for 6/8, 3 for 9/8, 4 for 12/8). Kept for UI only.
+ * - `subdivisionsPerBeat` — ticks per quarter-note. 1 for simple meters, 2
+ *   for compound (so each quarter splits into two eighths and the dotted-
+ *   beat subdivision is audible).
+ * - `strongEvery` — accent spacing in ticks. Simple meters accent once per
+ *   bar (`strongEvery = beatsPerBar × subdivisionsPerBeat`). Compound meters
+ *   accent every dotted-beat, which is 3 eighth-ticks.
  */
 export type MetronomePattern = {
   beatsPerBar: number;
   subdivisionsPerBeat: number;
+  strongEvery: number;
 };
 
-const DEFAULT: MetronomePattern = { beatsPerBar: 4, subdivisionsPerBeat: 1 };
+const DEFAULT: MetronomePattern = {
+  beatsPerBar: 4,
+  subdivisionsPerBeat: 1,
+  strongEvery: 4,
+};
 
 export function metronomePattern(
   sig: string | null | undefined
@@ -26,9 +34,17 @@ export function metronomePattern(
   if (!parsed) return DEFAULT;
   const { num, den } = parsed;
   if ((den === 8 || den === 16) && num >= 6 && num % 3 === 0) {
-    return { beatsPerBar: num / 3, subdivisionsPerBeat: 3 };
+    return {
+      beatsPerBar: num / 3,
+      subdivisionsPerBeat: 2,
+      strongEvery: 3,
+    };
   }
-  return { beatsPerBar: num, subdivisionsPerBeat: 1 };
+  return {
+    beatsPerBar: num,
+    subdivisionsPerBeat: 1,
+    strongEvery: num,
+  };
 }
 
 /** Audible pulses per bar (for the UI tempo display). */

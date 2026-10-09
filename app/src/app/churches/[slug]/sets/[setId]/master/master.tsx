@@ -158,6 +158,7 @@ export function Master({
   const [metronomeStartAt, setMetronomeStartAt] = useState(0);
   const [metronomeBeatsPerBar, setMetronomeBeatsPerBar] = useState(4);
   const [metronomeSubdivisions, setMetronomeSubdivisions] = useState(1);
+  const [metronomeStrongEvery, setMetronomeStrongEvery] = useState(4);
   const [emitMetronome, setEmitMetronome] = useState(false);
   const [chordColor, setChordColor] = useState(DEFAULT_CHORD_COLOR);
   const [sectionColor, setSectionColor] = useState(DEFAULT_SECTION_COLOR);
@@ -255,6 +256,7 @@ export function Master({
     startAt: metronomeStartAt,
     beatsPerBar: metronomeBeatsPerBar,
     subdivisionsPerBeat: metronomeSubdivisions,
+    strongEvery: metronomeStrongEvery,
   });
   useEffect(() => {
     metronomeStateRef.current = {
@@ -263,6 +265,7 @@ export function Master({
       startAt: metronomeStartAt,
       beatsPerBar: metronomeBeatsPerBar,
       subdivisionsPerBeat: metronomeSubdivisions,
+      strongEvery: metronomeStrongEvery,
     };
   }, [
     metronomeRunning,
@@ -270,6 +273,7 @@ export function Master({
     metronomeStartAt,
     metronomeBeatsPerBar,
     metronomeSubdivisions,
+    metronomeStrongEvery,
   ]);
 
   useEffect(() => {
@@ -295,15 +299,18 @@ export function Master({
     const pattern = metronomePattern(slide.songTimeSignature);
     const newBeats = pattern.beatsPerBar;
     const newSubs = pattern.subdivisionsPerBeat;
+    const newStrong = pattern.strongEvery;
     const t = slide.songTempo;
     const tempoChanged = !!(t && t > 0 && t !== metronomeBpm);
     const beatsChanged = newBeats !== metronomeBeatsPerBar;
     const subsChanged = newSubs !== metronomeSubdivisions;
-    if (!tempoChanged && !beatsChanged && !subsChanged) return;
+    const strongChanged = newStrong !== metronomeStrongEvery;
+    if (!tempoChanged && !beatsChanged && !subsChanged && !strongChanged) return;
     const nextBpm = tempoChanged ? t! : metronomeBpm;
     if (tempoChanged) setMetronomeBpm(t!);
     if (beatsChanged) setMetronomeBeatsPerBar(newBeats);
     if (subsChanged) setMetronomeSubdivisions(newSubs);
+    if (strongChanged) setMetronomeStrongEvery(newStrong);
     const ch = channelRef.current;
     if (metronomeRunning) {
       const startAt = Date.now() + 100;
@@ -317,6 +324,7 @@ export function Master({
           startAt,
           beatsPerBar: newBeats,
           subdivisionsPerBeat: newSubs,
+          strongEvery: newStrong,
         },
       });
     } else {
@@ -329,6 +337,7 @@ export function Master({
           startAt: metronomeStartAt,
           beatsPerBar: newBeats,
           subdivisionsPerBeat: newSubs,
+          strongEvery: newStrong,
         },
       });
     }
@@ -415,6 +424,7 @@ export function Master({
         startAt: metronomeStartAt,
         beatsPerBar: metronomeBeatsPerBar,
         subdivisionsPerBeat: metronomeSubdivisions,
+        strongEvery: metronomeStrongEvery,
       });
     } else {
       metronomeRef.current.stop();
@@ -426,6 +436,7 @@ export function Master({
     metronomeStartAt,
     metronomeBeatsPerBar,
     metronomeSubdivisions,
+    metronomeStrongEvery,
   ]);
 
   useEffect(() => {
@@ -508,6 +519,8 @@ export function Master({
         setMetronomeBeatsPerBar(p.beatsPerBar);
       if (typeof p.subdivisionsPerBeat === 'number' && p.subdivisionsPerBeat >= 1)
         setMetronomeSubdivisions(p.subdivisionsPerBeat);
+      if (typeof p.strongEvery === 'number' && p.strongEvery >= 1)
+        setMetronomeStrongEvery(p.strongEvery);
     });
 
     // viewer applies incoming state so its UI mirrors the master
@@ -878,6 +891,7 @@ export function Master({
         startAt: metronomeStartAt,
         beatsPerBar: metronomeBeatsPerBar,
         subdivisionsPerBeat: metronomeSubdivisions,
+        strongEvery: metronomeStrongEvery,
       });
     } else {
       const startAt = Date.now() + 200;
@@ -889,6 +903,7 @@ export function Master({
         startAt,
         beatsPerBar: metronomeBeatsPerBar,
         subdivisionsPerBeat: metronomeSubdivisions,
+        strongEvery: metronomeStrongEvery,
       });
     }
   }
@@ -906,6 +921,7 @@ export function Master({
         startAt,
         beatsPerBar: metronomeBeatsPerBar,
         subdivisionsPerBeat: metronomeSubdivisions,
+        strongEvery: metronomeStrongEvery,
       });
     } else {
       broadcastMetronome({
@@ -914,6 +930,7 @@ export function Master({
         startAt: metronomeStartAt,
         beatsPerBar: metronomeBeatsPerBar,
         subdivisionsPerBeat: metronomeSubdivisions,
+        strongEvery: metronomeStrongEvery,
       });
     }
   }

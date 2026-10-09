@@ -10,17 +10,17 @@
 
 export type MetronomeUpdate = {
   running: boolean;
-  /** Chart tempo (quarter in simple meters, dotted-quarter in compound). */
+  /** Chart quarter-note BPM (what the sheet says). */
   bpm: number;
   /** Date.now() ms of beat index 0. */
   startAt: number;
-  /** Audible pulses per bar — 4 for 4/4, 2 for 6/8. */
+  /** Audible pulses per bar — carried for consistency; the scheduler doesn't
+   * use it directly, strongEvery drives accents. */
   beatsPerBar?: number;
-  /**
-   * Ticks played between pulses. 1 = pulse-only (simple meters), 3 = eighth
-   * subdivision for compound (6/8 plays *--*--). Defaults to 1.
-   */
+  /** Ticks per chart quarter — 1 for simple meters, 2 for compound 8ths. */
   subdivisionsPerBeat?: number;
+  /** Ticks between accents. 4 for 4/4, 3 for 3/4 or 6/8, etc. */
+  strongEvery?: number;
 };
 
 const SCHEDULE_AHEAD = 0.15; // seconds
@@ -34,6 +34,7 @@ export class Metronome {
   private startAt = 0;
   private beatsPerBar = 4;
   private subdivisionsPerBeat = 1;
+  private strongEvery = 4;
   private nextBeatIndex = 0;
   private baseAudioTime = 0; // audio time corresponding to startAt
   private volume = 0.6;
@@ -53,6 +54,10 @@ export class Metronome {
     this.startAt = u.startAt;
     this.beatsPerBar = u.beatsPerBar ?? 4;
     this.subdivisionsPerBeat = Math.max(1, u.subdivisionsPerBeat ?? 1);
+    this.strongEvery = Math.max(
+      1,
+      u.strongEvery ?? this.beatsPerBar * this.subdivisionsPerBeat
+    );
     // Anchor: audioTime that corresponds to Date.now() == startAt.
     const now = Date.now();
     const audioNow = this.ctx.currentTime;
@@ -105,8 +110,7 @@ export class Metronome {
       const t = this.baseAudioTime + this.nextBeatIndex * tickSec;
       if (t > horizon) break;
       if (t >= this.ctx.currentTime - 0.02) {
-        // Accent lands on each chart pulse (every subdivisionsPerBeat ticks).
-        this.scheduleClick(t, this.nextBeatIndex % this.subdivisionsPerBeat === 0);
+        this.scheduleClick(t, this.nextBeatIndex % this.strongEvery === 0);
       }
       this.nextBeatIndex++;
     }
