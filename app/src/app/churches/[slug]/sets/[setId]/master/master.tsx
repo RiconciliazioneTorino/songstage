@@ -169,6 +169,7 @@ export function Master({
   const [ytPlaying, setYtPlaying] = useState(false);
   const [ytSharedSongId, setYtSharedSongId] = useState<string | null>(null);
   const [ytSharedUrl, setYtSharedUrl] = useState<string | null>(null);
+  const [ytSharedTime, setYtSharedTime] = useState<number | null>(null);
   const [receiveSharedAudio, setReceiveSharedAudio] = useState(false);
   const [chordColor, setChordColor] = useState(DEFAULT_CHORD_COLOR);
   const [sectionColor, setSectionColor] = useState(DEFAULT_SECTION_COLOR);
@@ -556,9 +557,11 @@ export function Master({
         playing?: boolean;
         songId?: string | null;
         url?: string | null;
+        time?: number | null;
       };
       setYtSharedSongId(p.songId ?? null);
       setYtSharedUrl(p.url ?? null);
+      if (typeof p.time === 'number') setYtSharedTime(p.time);
       if (p.playing === true || p.playing === false) {
         // Followers only start audio when they've opted in. The leader keeps
         // controlling its own panel locally.
@@ -1599,16 +1602,13 @@ export function Master({
               className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20"
             >
               {(() => {
-                // Which link + title the audio-only panel should use:
-                //  - leader: whatever is on the current slide.
-                //  - follower who opted in: whatever the leader last broadcast
-                //    (ytSharedUrl), so audio keeps playing even if the follower
-                //    is navigating a different song.
+                // Which link + title the panel reflects:
+                //  - leader: the current slide's YouTube link (if any).
+                //  - follower: whatever the leader last broadcast, so audio
+                //    keeps playing even if the follower navigates elsewhere.
                 const panelUrl = isMaster
                   ? slide.youtubeUrl
-                  : receiveSharedAudio
-                    ? ytSharedUrl ?? slide.youtubeUrl
-                    : null;
+                  : ytSharedUrl ?? slide.youtubeUrl;
                 const panelTitle = isMaster
                   ? slide.title
                   : slide.songId === ytSharedSongId
@@ -1621,7 +1621,9 @@ export function Master({
                     url={panelUrl}
                     title={panelTitle}
                     playing={ytPlaying}
-                    canToggle={isMaster}
+                    audible={receiveSharedAudio}
+                    canControl={isMaster}
+                    followerTime={isMaster ? null : ytSharedTime}
                     onToggle={(next) => {
                       if (!isMaster) return;
                       setYtPlaying(next);
@@ -1634,6 +1636,19 @@ export function Master({
                           playing: next,
                           songId: slide.songId,
                           url: slide.youtubeUrl,
+                          time: 0,
+                        },
+                      });
+                    }}
+                    onLeaderUpdate={(time) => {
+                      channelRef.current?.send({
+                        type: 'broadcast',
+                        event: 'yt_update',
+                        payload: {
+                          playing: true,
+                          songId: ytSharedSongId ?? slide.songId,
+                          url: ytSharedUrl ?? slide.youtubeUrl,
+                          time,
                         },
                       });
                     }}

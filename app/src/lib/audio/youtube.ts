@@ -1,12 +1,18 @@
 export function youtubeEmbedUrl(url: string): string | null {
+  const id = extractVideoId(url);
+  return id ? `https://www.youtube.com/embed/${id}` : null;
+}
+
+export function extractVideoId(url: string): string | null {
   try {
     const u = new URL(url);
     if (u.hostname.includes('youtu.be')) {
-      return `https://www.youtube.com/embed${u.pathname}`;
+      return u.pathname.replace(/^\/+/, '').split('/')[0] || null;
     }
     const v = u.searchParams.get('v');
-    if (v) return `https://www.youtube.com/embed/${v}`;
-    if (u.pathname.startsWith('/embed/')) return url;
+    if (v) return v;
+    const m = u.pathname.match(/^\/embed\/([^/?#]+)/);
+    if (m) return m[1];
     return null;
   } catch {
     return null;

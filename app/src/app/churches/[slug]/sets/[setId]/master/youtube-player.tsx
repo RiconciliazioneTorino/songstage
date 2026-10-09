@@ -1,61 +1,166 @@
 'use client';
 
-import { useState } from 'react';
-import { youtubeEmbedUrl } from '@/lib/audio/youtube';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { extractVideoId } from '@/lib/audio/youtube';
+import { loadYouTubeApi, type YtPlayer } from '@/lib/audio/youtube-api';
 
 /**
- * YouTube reference-audio panel. The iframe is kept at 1×1 off-screen so the
- * leader (and any follower that opted in to shared audio) hears the recording
- * without a video distracting them.
+ * YouTube reference-audio panel with a shared timeline.
  *
- * Pass `playing` + `onToggle` to drive it externally (shared-audio sync).
- * Omit both for a self-contained panel.
+ * - `canControl` → leader-side: play/pause and scrub are enabled; the
+ *   component calls `onLeaderUpdate` periodically and on every scrub so
+ *   followers can stay in sync.
+ * - `audible` → mount the actual YT.Player on this device. The leader can
+ *   turn their own audio off (via the 🎧 toggle) while still broadcasting
+ *   for the mixer machine.
+ * - `followerTime` → followers pass the latest broadcast time here; the
+ *   component seeks the local player if the gap exceeds a threshold.
  */
 export function YoutubePlayer({
   url,
   title,
   playing,
+  audible,
+  canControl,
   onToggle,
-  canToggle = true,
+  followerTime,
+  onLeaderUpdate,
 }: {
   url: string;
   title: string;
-  playing?: boolean;
-  onToggle?: (next: boolean) => void;
-  canToggle?: boolean;
+  playing: boolean;
+  audible: boolean;
+  canControl: boolean;
+  onToggle: (next: boolean) => void;
+  followerTime?: number | null;
+  onLeaderUpdate?: (time: number) => void;
 }) {
-  const embed = youtubeEmbedUrl(url);
-  const [internalOpen, setInternalOpen] = useState(false);
-  const controlled = typeof playing === 'boolean';
-  const isPlaying = controlled ? playing : internalOpen;
-  if (!embed) return null;
-  const src = `${embed}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3`;
+  const videoId = extractVideoId(url);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<YtPlayer | null>(null);
+  const [ready, setReady] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [scrubbing, setScrubbing] = useState(false);
 
-  function toggle() {
-    if (!canToggle) return;
-    const next = !isPlaying;
-    if (controlled) onToggle?.(next);
-    else setInternalOpen(next);
-  }
+  // Build the YT.Player when this device has audio on and we have a video id.
+  useEffect(() => {
+    if (!audible || !videoId || !hostRef.current) return;
+    let cancelled = false;
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !hostRef.current) return;
+      const player = new YT.Player(hostRef.current, {
+        videoId,
+        width: 1,
+        height: 1,
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          iv_load_policy: 3,
+        },
+        events: {
+          onReady: ({ target }) => {
+            setReady(true);
+            try {
+              setDuration(target.getDuration() || 0);
+            } catch {}
+          },
+          onStateChange: ({ target }) => {
+            try {
+              setDuration(target.getDuration() || 0);
+            } catch {}
+          },
+        },
+      });
+      playerRef.current = player;
+    });
+    return () => {
+      cancelled = true;
+      try {
+        playerRef.current?.destroy();
+      } catch {}
+      playerRef.current = null;
+      setReady(false);
+      setDuration(0);
+      setCurrentTime(0);
+    };
+  }, [audible, videoId]);
+
+  // Apply play/pause to the local player when the controlling state flips.
+  useEffect(() => {
+    if (!ready || !playerRef.current) return;
+    try {
+      if (playing) playerRef.current.playVideo();
+      else playerRef.current.pauseVideo();
+    } catch {}
+  }, [playing, ready]);
+
+  // Follower: snap the local player when the broadcast time diverges.
+  useEffect(() => {
+    if (canControl) return; // leader doesn't follow itself
+    if (!ready || !playerRef.current) return;
+    if (typeof followerTime !== 'number') return;
+    try {
+      const local = playerRef.current.getCurrentTime() || 0;
+      if (Math.abs(local - followerTime) > 1.0) {
+        playerRef.current.seekTo(followerTime, true);
+      }
+    } catch {}
+  }, [followerTime, ready, canControl]);
+
+  // Poll local time; the leader additionally forwards it over the channel.
+  useEffect(() => {
+    if (!ready || !playerRef.current) return;
+    const interval = setInterval(() => {
+      const p = playerRef.current;
+      if (!p) return;
+      try {
+        const now = p.getCurrentTime() || 0;
+        if (!scrubbing) setCurrentTime(now);
+        if (canControl && playing) onLeaderUpdate?.(now);
+      } catch {}
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [ready, playing, canControl, onLeaderUpdate, scrubbing]);
+
+  const handleScrub = useCallback(
+    (sec: number) => {
+      if (!canControl) return;
+      setCurrentTime(sec);
+      try {
+        playerRef.current?.seekTo(sec, true);
+      } catch {}
+      onLeaderUpdate?.(sec);
+    },
+    [canControl, onLeaderUpdate]
+  );
+
+  if (!videoId) return null;
+  const sliderMax = Math.max(duration, 1);
+  const sliderValue = Math.min(currentTime, sliderMax);
 
   return (
-    <div className="mt-3 rounded-md border border-border bg-panel overflow-hidden">
+    <div className="mt-3 rounded-md border border-border bg-panel">
       <div className="flex items-center gap-2 px-3 py-2">
         <button
-          onClick={toggle}
-          disabled={!canToggle}
+          onClick={() => canControl && onToggle(!playing)}
+          disabled={!canControl}
           className={`inline-flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 text-white disabled:opacity-40 disabled:cursor-not-allowed ${
-            isPlaying ? 'bg-red-700 hover:bg-red-600' : 'bg-red-600 hover:bg-red-500'
+            playing ? 'bg-red-700 hover:bg-red-600' : 'bg-red-600 hover:bg-red-500'
           }`}
-          title={isPlaying ? 'Ferma' : 'Riproduci YouTube (solo audio)'}
-          aria-label={isPlaying ? 'Ferma YouTube' : 'Riproduci YouTube'}
+          title={playing ? 'Ferma' : 'Riproduci YouTube'}
+          aria-label={playing ? 'Ferma YouTube' : 'Riproduci YouTube'}
         >
           <span aria-hidden className="text-sm leading-none">
-            {isPlaying ? '■' : '▶'}
+            {playing ? '■' : '▶'}
           </span>
         </button>
         <span className="text-xs text-zinc-400 truncate flex-1 min-w-0">
-          {isPlaying ? 'Audio in riproduzione' : `Ascolta: ${title}`}
+          {title}
         </span>
         <a
           href={url}
@@ -67,9 +172,46 @@ export function YoutubePlayer({
           ↗
         </a>
       </div>
-      {isPlaying && (
-        // Audio-only: iframe stays mounted but off-screen. The user said the
-        // video itself isn't useful; sound keeps flowing to the mixer / monitor.
+
+      <div className="px-3 pb-2 flex items-center gap-2">
+        <span className="text-[10px] text-zinc-500 font-mono tabular-nums w-10 text-right">
+          {fmtTime(currentTime)}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={sliderMax}
+          step={0.5}
+          value={sliderValue}
+          onChange={(e) => {
+            if (!canControl) return;
+            const v = parseFloat(e.target.value);
+            setCurrentTime(v);
+          }}
+          onMouseDown={() => setScrubbing(true)}
+          onTouchStart={() => setScrubbing(true)}
+          onMouseUp={(e) => {
+            setScrubbing(false);
+            if (!canControl) return;
+            handleScrub(parseFloat((e.target as HTMLInputElement).value));
+          }}
+          onTouchEnd={(e) => {
+            setScrubbing(false);
+            if (!canControl) return;
+            handleScrub(parseFloat((e.target as HTMLInputElement).value));
+          }}
+          disabled={!canControl}
+          className="flex-1 accent-red-600 disabled:opacity-40"
+          aria-label="Posizione nella traccia"
+        />
+        <span className="text-[10px] text-zinc-500 font-mono tabular-nums w-10">
+          {fmtTime(duration)}
+        </span>
+      </div>
+
+      {/* Audio sink: an off-screen 1×1 host for YT.Player. Only mounted when
+          this device is set to play audio. */}
+      {audible && (
         <div
           aria-hidden
           style={{
@@ -81,15 +223,16 @@ export function YoutubePlayer({
             top: -9999,
           }}
         >
-          <iframe
-            src={src}
-            title={`YouTube — ${title}`}
-            allow="autoplay; encrypted-media"
-            width={1}
-            height={1}
-          />
+          <div ref={hostRef} />
         </div>
       )}
     </div>
   );
+}
+
+function fmtTime(sec: number): string {
+  const total = Math.max(0, Math.floor(sec));
+  const m = Math.floor(total / 60);
+  const r = total % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
 }
