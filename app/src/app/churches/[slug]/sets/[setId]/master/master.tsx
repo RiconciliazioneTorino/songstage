@@ -177,6 +177,16 @@ export function Master({
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [role, setRole] = useState<'connecting' | 'master' | 'viewer'>('connecting');
+  // The console is for the active leader only. If we settle on 'viewer' —
+  // because someone else grabbed control, we granted it away, or we landed
+  // on /master while a master is already live — bounce to /view, which has
+  // the "Richiedi master" affordance for taking it back.
+  useEffect(() => {
+    if (role === 'viewer') {
+      router.replace(`/churches/${slug}/sets/${setId}/view`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
   // Absolute transpose pushed by the leader; null until the first state frame.
   const [followerTranspose, setFollowerTranspose] = useState<number | null>(null);
   // The song the leader last reported, so a refreshed slide list can catch up
