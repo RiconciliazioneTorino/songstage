@@ -22,6 +22,13 @@ export function isPastEvent(eventDate: string | null, today: string): boolean {
   return eventDate < today;
 }
 
+/**
+ * The two groups read in opposite directions, because they answer opposite
+ * questions: what is coming counts forward from today (the next service
+ * first), while what is done counts backward (the one just sung first).
+ *
+ * Undated sets sort last among the upcoming — there is no date to be soon.
+ */
 export function splitByDate<T extends { event_date: string | null }>(
   rows: T[],
   today: string
@@ -31,5 +38,14 @@ export function splitByDate<T extends { event_date: string | null }>(
   for (const row of rows) {
     (isPastEvent(row.event_date, today) ? past : current).push(row);
   }
+
+  current.sort((a, b) => {
+    if (a.event_date === b.event_date) return 0;
+    if (!a.event_date) return 1;
+    if (!b.event_date) return -1;
+    return a.event_date < b.event_date ? -1 : 1;
+  });
+  past.sort((a, b) => ((a.event_date ?? '') > (b.event_date ?? '') ? -1 : 1));
+
   return { current, past };
 }

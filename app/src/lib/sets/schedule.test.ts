@@ -43,17 +43,40 @@ describe('todayInRome', () => {
 });
 
 describe('splitByDate', () => {
-  it('separates the two groups and keeps the order within each', () => {
+  it('puts the next service first and the most recent past one first', () => {
     const rows = [
       { event_date: '2026-10-16' },
       { event_date: '2026-10-11' },
-      { event_date: '2026-10-04' },
       { event_date: '2026-10-02' },
+      { event_date: '2026-10-04' },
       { event_date: null },
     ];
     const { current, past } = splitByDate(rows, '2026-10-09');
-    expect(current.map((r) => r.event_date)).toEqual(['2026-10-16', '2026-10-11', null]);
+    expect(current.map((r) => r.event_date)).toEqual(['2026-10-11', '2026-10-16', null]);
     expect(past.map((r) => r.event_date)).toEqual(['2026-10-04', '2026-10-02']);
+  });
+
+  it('sorts regardless of the order it was handed', () => {
+    const rows = [
+      { event_date: '2026-10-02' },
+      { event_date: '2026-10-16' },
+      { event_date: '2026-10-04' },
+      { event_date: '2026-10-11' },
+    ];
+    const { current, past } = splitByDate(rows, '2026-10-09');
+    expect(current.map((r) => r.event_date)).toEqual(['2026-10-11', '2026-10-16']);
+    expect(past.map((r) => r.event_date)).toEqual(['2026-10-04', '2026-10-02']);
+  });
+
+  it('keeps undated sets last among the upcoming', () => {
+    const rows = [{ event_date: null }, { event_date: '2026-10-11' }, { event_date: null }];
+    const { current } = splitByDate(rows, '2026-10-09');
+    expect(current.map((r) => r.event_date)).toEqual(['2026-10-11', null, null]);
+  });
+
+  it('keeps several sets sharing a date together', () => {
+    const rows = [{ event_date: '2026-10-04' }, { event_date: '2026-10-04' }];
+    expect(splitByDate(rows, '2026-10-09').past).toHaveLength(2);
   });
 
   it('handles a list that is entirely past', () => {
