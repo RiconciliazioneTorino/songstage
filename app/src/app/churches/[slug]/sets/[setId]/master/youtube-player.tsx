@@ -25,6 +25,7 @@ export function YoutubePlayer({
   onToggle,
   followerTime,
   onLeaderUpdate,
+  headless = false,
 }: {
   url: string;
   title: string;
@@ -34,6 +35,8 @@ export function YoutubePlayer({
   onToggle: (next: boolean) => void;
   followerTime?: number | null;
   onLeaderUpdate?: (time: number) => void;
+  /** Hide the UI and only mount the audio sink. For the projector screen. */
+  headless?: boolean;
 }) {
   const videoId = extractVideoId(url);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +162,24 @@ export function YoutubePlayer({
   if (!videoId) return null;
   const sliderMax = Math.max(duration, 1);
   const sliderValue = Math.min(currentTime, sliderMax);
+
+  if (headless) {
+    return (
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          left: -9999,
+          top: -9999,
+        }}
+      >
+        <div ref={hostRef} />
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 rounded-md border border-border bg-panel">

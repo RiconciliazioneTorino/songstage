@@ -6,6 +6,7 @@ import { parseOnSong, SongView } from '@/lib/onsong';
 import { createClient } from '@/lib/supabase/client';
 import { applyOrder, resolveIncomingIndex, type ProjectionState } from '@/lib/sets/projection';
 import type { Slide } from '../master/master';
+import { YoutubePlayer } from '../master/youtube-player';
 
 /**
  * This screen's own zoom, multiplied on top of whatever size the leader sends.
@@ -21,6 +22,7 @@ const ZOOM_KEY = 'songstage:projector-zoom';
  * church that never touches the button.
  */
 const SHOW_CHORDS_KEY = 'songstage:projector-show-chords';
+const RECEIVE_SHARED_AUDIO_KEY = 'songstage:receive-shared-audio';
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4;
 
@@ -43,6 +45,13 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
   const [connected, setConnected] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [showChordsLocal, setShowChordsLocal] = useState<boolean | null>(null);
+  // Shared YouTube audio from the leader. The projector is a sink: no
+  // play/pause here, just mute/unmute via the 🎧 toggle.
+  const [receiveSharedAudio, setReceiveSharedAudio] = useState(false);
+  const [ytPlaying, setYtPlaying] = useState(false);
+  const [ytUrl, setYtUrl] = useState<string | null>(null);
+  const [ytTitle, setYtTitle] = useState<string>('');
+  const [ytTime, setYtTime] = useState<number | null>(null);
   // The controls sit out of the way until someone interacts: this screen is
   // pointed at a congregation, not at an operator.
   const [controlsVisible, setControlsVisible] = useState(false);
@@ -62,8 +71,21 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
       if (Number.isFinite(saved) && saved > 0) setZoom(clampZoom(saved));
       const chords = localStorage.getItem(SHOW_CHORDS_KEY);
       if (chords !== null) setShowChordsLocal(chords === '1');
+      if (localStorage.getItem(RECEIVE_SHARED_AUDIO_KEY) === '1')
+        setReceiveSharedAudio(true);
     } catch {}
   }, []);
+
+  function toggleReceiveSharedAudio() {
+    setReceiveSharedAudio((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(RECEIVE_SHARED_AUDIO_KEY, next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+    revealControls();
+  }
 
   // The gesture listeners are installed once, so they read and write the
   // current zoom through a ref.
@@ -143,6 +165,21 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
       setSlidesLocal((prev) =>
         prev.map((s) => (s.itemId === itemId ? { ...s, body } : s))
       );
+    });
+    channel.on('broadcast', { event: 'yt_update' }, ({ payload }) => {
+      const p = payload as {
+        playing?: boolean;
+        url?: string | null;
+        songId?: string | null;
+        time?: number | null;
+      };
+      if (typeof p.playing === 'boolean') setYtPlaying(p.playing);
+      if (typeof p.url !== 'undefined') setYtUrl(p.url ?? null);
+      if (typeof p.time === 'number') setYtTime(p.time);
+      if (p.songId) {
+        const match = slidesLocalRef.current.find((s) => s.songId === p.songId);
+        if (match) setYtTitle(match.title);
+      }
     });
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -310,7 +347,42 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
         >
           ♪
         </button>
+        <button
+          onClick={toggleReceiveSharedAudio}
+          aria-pressed={receiveSharedAudio}
+          aria-label={
+            receiveSharedAudio
+              ? 'Spegni audio YouTube su questo schermo'
+              : 'Riproduci audio YouTube del leader su questo schermo'
+          }
+          title={
+            receiveSharedAudio
+              ? 'Audio YouTube del leader: acceso'
+              : 'Audio YouTube del leader: spento'
+          }
+          className={`min-w-[2.25rem] h-9 rounded-full border text-sm flex items-center justify-center ${
+            receiveSharedAudio
+              ? 'border-accent text-accent'
+              : 'border-border hover:border-accent text-zinc-400'
+          }`}
+        >
+          🎧
+        </button>
       </div>
+
+      {ytUrl && (
+        <YoutubePlayer
+          key={ytUrl}
+          headless
+          url={ytUrl}
+          title={ytTitle || 'YouTube'}
+          playing={ytPlaying}
+          audible={receiveSharedAudio}
+          canControl={false}
+          followerTime={ytTime}
+          onToggle={() => {}}
+        />
+      )}
     </main>
   );
 }
