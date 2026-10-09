@@ -16,9 +16,13 @@ type SetData = {
 export function SetHeader({
   slug,
   set,
+  liveHref,
 }: {
   slug: string;
   set: SetData;
+  /** Where "Entra nel set" points — /master or /view depending on role and
+   *  whether someone else is already leading. Computed by the server page. */
+  liveHref: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -124,7 +128,7 @@ export function SetHeader({
       </div>
       <div className="flex flex-col items-end gap-2">
         <Link
-          href={`/churches/${slug}/sets/${set.id}/view`}
+          href={liveHref}
           className="px-3 py-2 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm"
         >
           Entra nel set ▸

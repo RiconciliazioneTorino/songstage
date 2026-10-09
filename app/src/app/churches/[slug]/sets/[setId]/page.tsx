@@ -15,17 +15,35 @@ export default async function SetDetailPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [churchRes, setRes] = await Promise.all([
+  const [churchRes, setRes, isOwnerOrLeadRes, canWriteSharedRes] = await Promise.all([
     supabase.from('churches').select('id, name, slug').eq('slug', slug).maybeSingle(),
     supabase
       .from('sets')
-      .select('id, name, event_date, event_type, notes')
+      .select('id, name, event_date, event_type, notes, active_master_user_id, active_master_heartbeat_at')
       .eq('id', setId)
       .maybeSingle(),
+    supabase.rpc('set_owner_or_church_lead', { p_set_id: setId }),
+    supabase.rpc('can_write_set_shared', { p_set_id: setId }),
   ]);
   const church = churchRes.data;
   const set = setRes.data;
   if (!church || !set) notFound();
+
+  const canBeMaster = !!isOwnerOrLeadRes.data || !!canWriteSharedRes.data;
+  const liveMasterUserId = (set.active_master_user_id as string | null) ?? null;
+  const liveMasterHeartbeat = set.active_master_heartbeat_at
+    ? new Date(set.active_master_heartbeat_at).getTime()
+    : 0;
+  const liveMasterIsFresh =
+    liveMasterUserId !== null &&
+    liveMasterUserId !== user.id &&
+    Date.now() - liveMasterHeartbeat < 45_000;
+  // Someone with rights lands straight on the console unless another leader
+  // is already driving; everyone else goes to the simplified view.
+  const liveHref =
+    canBeMaster && !liveMasterIsFresh
+      ? `/churches/${church.slug}/sets/${set.id}/master`
+      : `/churches/${church.slug}/sets/${set.id}/view`;
 
   // Contents, picker and sharing panels are independent of each other.
   const [itemsRes, songsRes, sharesRes, bandSharesRes, churchBandsRes] = await Promise.all([
@@ -96,7 +114,7 @@ export default async function SetDetailPage({
         ← Set
       </Link>
       <div className="mt-4">
-        <SetHeader slug={church.slug} set={set} />
+        <SetHeader slug={church.slug} set={set} liveHref={liveHref} />
       </div>
 
       <SetEditor

@@ -44,7 +44,9 @@ export function ViewConsole({
   const [audioClaimedElsewhere, setAudioClaimedElsewhere] = useState(false);
   const [showChords, setShowChords] = useState(true);
   const [fontScale, setFontScale] = useState(1);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(false);
+  const hideControlsRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ expiresAt: number } | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
@@ -267,6 +269,18 @@ export function ViewConsole({
     };
   }, []);
 
+  function revealControls() {
+    setControlsVisible(true);
+    if (hideControlsRef.current) clearTimeout(hideControlsRef.current);
+    hideControlsRef.current = setTimeout(() => setControlsVisible(false), 3500);
+  }
+  useEffect(
+    () => () => {
+      if (hideControlsRef.current) clearTimeout(hideControlsRef.current);
+    },
+    []
+  );
+
   function requestLead() {
     const ch = channelRef.current;
     if (!ch || !canBeMaster) return;
@@ -309,145 +323,63 @@ export function ViewConsole({
   }
 
   return (
-    <main className="h-dvh flex flex-col">
-      <div
-        className="border-b border-border bg-panel p-3 flex gap-2 items-center flex-wrap"
-        style={{
-          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
-          paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
-          paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
-        }}
-      >
-        <Link
-          href={`/churches/${slug}/sets/${setId}`}
-          className="text-sm text-zinc-400 hover:text-white"
+    <main
+      className="h-dvh overflow-hidden relative"
+      onPointerDown={revealControls}
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
+      {/* Full-page scrollable song */}
+      <div className="h-full overflow-auto">
+        <div
+          className="max-w-3xl mx-auto w-full p-8 px-6 sm:px-16 md:px-20"
+          style={{ fontSize: `${fontScale}em` }}
         >
-          ← {setName}
-        </Link>
-        <button
-          onClick={() => setSidebarOpen((v) => !v)}
-          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
-          aria-label={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
-          title={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
-        >
-          ☰
-        </button>
-        <span className="text-xs text-zinc-500">In ascolto</span>
-
-        <span className="flex-1" />
-
-        <div className="flex items-center gap-1" title="Dimensione del testo">
-          <button
-            onClick={() => setFontScale((f) => Math.max(0.5, +(f - 0.1).toFixed(2)))}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            aria-label="Rimpicciolisci testo"
-          >
-            A−
-          </button>
-          <button
-            onClick={() => setFontScale((f) => Math.min(3, +(f + 0.1).toFixed(2)))}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            aria-label="Ingrandisci testo"
-          >
-            A+
-          </button>
+          {song && (
+            <SongView
+              song={song}
+              semitones={totalSemitones}
+              fontScale={fontScale}
+              showChords={showChords}
+            />
+          )}
         </div>
-
-        <button
-          onClick={() => setShowChords((v) => !v)}
-          className={`min-w-[2.25rem] h-9 rounded-full border text-xl leading-none flex items-center justify-center ${
-            showChords
-              ? 'border-accent text-accent'
-              : 'border-border text-zinc-500 hover:border-accent'
-          }`}
-          title={showChords ? 'Nascondi accordi' : 'Mostra accordi'}
-          aria-pressed={showChords}
-        >
-          ♪
-        </button>
-
-        <button
-          onClick={() => setEmitMetronome((v) => !v)}
-          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
-            emitMetronome
-              ? 'border-accent text-accent'
-              : 'border-border text-zinc-500 hover:border-accent'
-          }`}
-          title={
-            emitMetronome
-              ? 'Metronomo acustico su questo dispositivo: acceso'
-              : 'Metronomo acustico su questo dispositivo: spento'
-          }
-          aria-pressed={emitMetronome}
-        >
-          <MetronomeIcon on={emitMetronome} />
-        </button>
-
-        <button
-          onClick={() => setReceiveSharedAudio((v) => !v)}
-          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
-            effectiveAudible
-              ? 'border-accent text-accent'
-              : receiveSharedAudio && audioClaimedElsewhere
-                ? 'border-amber-500 text-amber-400'
-                : 'border-border text-zinc-500 hover:border-accent'
-          }`}
-          title={
-            audioClaimedElsewhere
-              ? "Audio in riproduzione in un'altra scheda (proiezione) di questo dispositivo"
-              : receiveSharedAudio
-                ? 'Ricevi audio YouTube del leader: acceso'
-                : 'Ricevi audio YouTube del leader: spento'
-          }
-          aria-pressed={receiveSharedAudio}
-        >
-          🎧
-        </button>
-
-        {canBeMaster && (
-          <button
-            onClick={requestLead}
-            disabled={!!pendingRequest}
-            className="h-9 px-3 rounded-full border border-accent text-accent text-sm hover:bg-accent/10 disabled:opacity-50"
-            title={
-              liveMasterIsFresh
-                ? 'Chiedi al master attuale il controllo del set'
-                : 'Prendi il controllo del set (nessun master attivo)'
-            }
-          >
-            {pendingRequest
-              ? `Richiesta inviata… ${secondsLeft}s`
-              : liveMasterIsFresh
-                ? '🎚 Richiedi master'
-                : '🎚 Prendi il controllo'}
-          </button>
-        )}
       </div>
 
-      {requestError && (
-        <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-300 flex items-center gap-2">
-          <span>{requestError}</span>
-          <button
-            onClick={() => setRequestError(null)}
-            className="ml-auto text-amber-300/70 hover:text-amber-200"
-            aria-label="Chiudi"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      <div className="flex-1 flex min-h-0">
-        {sidebarOpen && (
-          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0 max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-20 max-sm:bg-panel max-sm:shadow-2xl">
+      {/* Setlist overlay (hidden by default; opens from the floating ☰ chip) */}
+      {sidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-30"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden
+          />
+          <aside className="fixed top-0 bottom-0 left-0 w-64 bg-panel border-r border-border overflow-auto z-40 shadow-2xl">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <Link
+                href={`/churches/${slug}/sets/${setId}`}
+                className="text-sm text-zinc-400 hover:text-white truncate"
+                title={setName}
+              >
+                ← {setName}
+              </Link>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="min-w-[2rem] h-8 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center flex-shrink-0 ml-2"
+                aria-label="Chiudi scaletta"
+              >
+                ✕
+              </button>
+            </div>
             <ol className="p-2 text-sm">
               {slidesLocal.map((s, i) => (
                 <li
                   key={s.itemId}
                   className={`px-3 py-2 rounded-md flex items-center gap-2 ${
-                    i === index
-                      ? 'bg-accent/15 text-accent'
-                      : 'text-zinc-400'
+                    i === index ? 'bg-accent/15 text-accent' : 'text-zinc-400'
                   }`}
                 >
                   <span className="w-5 text-right text-xs tabular-nums text-zinc-500">
@@ -458,24 +390,170 @@ export function ViewConsole({
               ))}
             </ol>
           </aside>
-        )}
+        </>
+      )}
 
-        <div className="flex-1 overflow-auto">
-          <div
-            className="max-w-3xl mx-auto w-full p-8 px-6 sm:px-16 md:px-20"
-            style={{ fontSize: `${fontScale}em` }}
-          >
-            {song && (
-              <SongView
-                song={song}
-                semitones={totalSemitones}
-                fontScale={fontScale}
-                showChords={showChords}
-              />
-            )}
-          </div>
-        </div>
+      {/* Top-left: back + hamburger. Always visible so the setlist is
+          one tap away even when the controls have faded. */}
+      <div
+        className="fixed top-2 left-2 flex items-center gap-1.5 z-20"
+        style={{
+          marginTop: 'env(safe-area-inset-top)',
+          marginLeft: 'env(safe-area-inset-left)',
+        }}
+      >
+        <button
+          onClick={() => {
+            setSidebarOpen((v) => !v);
+            revealControls();
+          }}
+          className="min-w-[2.25rem] h-9 rounded-full border border-border bg-panel/90 hover:border-accent text-lg leading-none flex items-center justify-center"
+          aria-label="Scaletta"
+          title="Scaletta"
+        >
+          ☰
+        </button>
       </div>
+
+      {/* Top-right: "Richiedi master" (only when applicable). Kept outside
+          the fading controls because it's the viewer's main action. */}
+      {canBeMaster && (
+        <div
+          className="fixed top-2 right-2 z-20"
+          style={{
+            marginTop: 'env(safe-area-inset-top)',
+            marginRight: 'env(safe-area-inset-right)',
+          }}
+        >
+          <button
+            onClick={requestLead}
+            disabled={!!pendingRequest}
+            className="h-9 px-3 rounded-full border border-accent bg-panel/90 text-accent text-sm hover:bg-accent/10 disabled:opacity-50"
+            title={
+              liveMasterIsFresh
+                ? 'Chiedi al master attuale il controllo del set'
+                : 'Prendi il controllo del set (nessun master attivo)'
+            }
+          >
+            {pendingRequest
+              ? `Richiesta… ${secondsLeft}s`
+              : liveMasterIsFresh
+                ? '🎚 Richiedi master'
+                : '🎚 Prendi il controllo'}
+          </button>
+        </div>
+      )}
+
+      {/* Bottom-right floating controls — fade after 3.5s like the
+          projector. Any tap on the page reveals them again. */}
+      <div
+        className={`fixed bottom-3 right-3 flex items-center gap-1 rounded-full bg-panel/90 border border-border px-1.5 py-1 transition-opacity duration-500 z-20 ${
+          controlsVisible
+            ? 'opacity-100'
+            : 'opacity-0 pointer-events-none'
+        }`}
+        style={{
+          marginBottom: 'env(safe-area-inset-bottom)',
+          marginRight: 'env(safe-area-inset-right)',
+        }}
+      >
+        <button
+          onClick={() => {
+            setFontScale((f) => Math.max(0.5, +(f - 0.1).toFixed(2)));
+            revealControls();
+          }}
+          aria-label="Rimpicciolisci testo"
+          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+        >
+          A−
+        </button>
+        <button
+          onClick={() => {
+            setFontScale((f) => Math.min(3, +(f + 0.1).toFixed(2)));
+            revealControls();
+          }}
+          aria-label="Ingrandisci testo"
+          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+        >
+          A+
+        </button>
+        <button
+          onClick={() => {
+            setShowChords((v) => !v);
+            revealControls();
+          }}
+          aria-pressed={showChords}
+          title={showChords ? 'Nascondi accordi' : 'Mostra accordi'}
+          aria-label="Mostra o nascondi accordi"
+          className={`min-w-[2.25rem] h-9 rounded-full border text-xl leading-none flex items-center justify-center ${
+            showChords
+              ? 'border-accent text-accent'
+              : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+        >
+          ♪
+        </button>
+        <button
+          onClick={() => {
+            setEmitMetronome((v) => !v);
+            revealControls();
+          }}
+          aria-pressed={emitMetronome}
+          title={
+            emitMetronome
+              ? 'Metronomo acustico su questo dispositivo: acceso'
+              : 'Metronomo acustico su questo dispositivo: spento'
+          }
+          aria-label="Metronomo acustico su questo dispositivo"
+          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
+            emitMetronome
+              ? 'border-accent text-accent'
+              : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+        >
+          <MetronomeIcon on={emitMetronome} />
+        </button>
+        <button
+          onClick={() => {
+            setReceiveSharedAudio((v) => !v);
+            revealControls();
+          }}
+          aria-pressed={receiveSharedAudio}
+          title={
+            audioClaimedElsewhere
+              ? "Audio in riproduzione in un'altra scheda (proiezione) di questo dispositivo"
+              : receiveSharedAudio
+                ? 'Ricevi audio YouTube del leader: acceso'
+                : 'Ricevi audio YouTube del leader: spento'
+          }
+          aria-label="Ricevi audio YouTube del leader"
+          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
+            effectiveAudible
+              ? 'border-accent text-accent'
+              : receiveSharedAudio && audioClaimedElsewhere
+                ? 'border-amber-500 text-amber-400'
+                : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+        >
+          🎧
+        </button>
+      </div>
+
+      {requestError && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 top-14 z-30 rounded-md border border-amber-500/40 bg-amber-950/90 px-4 py-2 text-xs text-amber-200 flex items-center gap-2 shadow-lg"
+          style={{ marginTop: 'env(safe-area-inset-top)' }}
+        >
+          <span>{requestError}</span>
+          <button
+            onClick={() => setRequestError(null)}
+            className="text-amber-300/70 hover:text-amber-100"
+            aria-label="Chiudi"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {ytUrl && (
         <YoutubePlayer
