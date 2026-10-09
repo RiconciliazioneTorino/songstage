@@ -56,6 +56,7 @@ export default async function ProjectorPage({
     originalKey: i.song.original_key,
     songTempo: null,
     songTimeSignature: null,
+    youtubeUrl: null,
     isCanonical: i.song.church_id === null,
     transpose: i.transpose_semitones,
     baseBody: '',

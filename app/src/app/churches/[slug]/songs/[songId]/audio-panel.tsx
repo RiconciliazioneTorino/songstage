@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addSongAudioLink, removeSongAudio } from '@/lib/songs/actions';
+import { youtubeEmbedUrl } from '@/lib/audio/youtube';
 
 type Audio = {
   id: string;
@@ -19,21 +20,6 @@ const KIND_LABELS: Record<Audio['kind'], string> = {
   soundcloud: 'SoundCloud',
   other: 'Link',
 };
-
-function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes('youtu.be')) {
-      return `https://www.youtube.com/embed${u.pathname}`;
-    }
-    const v = u.searchParams.get('v');
-    if (v) return `https://www.youtube.com/embed/${v}`;
-    if (u.pathname.startsWith('/embed/')) return url;
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 function spotifyEmbedUrl(url: string): string | null {
   try {

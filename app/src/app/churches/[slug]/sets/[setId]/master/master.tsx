@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { parseOnSong, SongView } from '@/lib/onsong';
+import { YoutubePlayer } from './youtube-player';
 import { useFitToWidth } from '@/lib/onsong/useFitToWidth';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
@@ -84,6 +85,8 @@ export type Slide = {
   originalKey: string | null;
   songTempo: number | null;
   songTimeSignature: string | null;
+  /** First YouTube link found on this song, if any. */
+  youtubeUrl: string | null;
   /** Canonical songs are shared across churches: key/transpose is per-set and
    *  editable, the lyrics and chords are not. */
   isCanonical: boolean;
@@ -1518,6 +1521,13 @@ export function Master({
               ref={fitRef}
               className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20"
             >
+              {!isViewer && slide.youtubeUrl && (
+                <YoutubePlayer
+                  key={slide.songId}
+                  url={slide.youtubeUrl}
+                  title={slide.title}
+                />
+              )}
               {song && (
                 <SongView
                   song={song}

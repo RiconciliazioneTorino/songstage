@@ -52,9 +52,10 @@ export default async function MasterPage({
     .filter((v): v is string => !!v);
   const songIds = itemList.map((i) => i.song.id);
 
-  // Current bodies and every variation the user can see for these songs, so the
-  // leader can switch variation without another round trip.
-  const [versionsRes, allVarsRes] = await Promise.all([
+  // Current bodies, every variation the user can see for these songs, and any
+  // YouTube link attached — fetched together so the leader can switch variation
+  // or hit play without another round trip.
+  const [versionsRes, allVarsRes, audioRes] = await Promise.all([
     versionIds.length > 0
       ? supabase.from('song_versions').select('id, body_onsong').in('id', versionIds)
       : { data: [] },
@@ -64,10 +65,25 @@ export default async function MasterPage({
           .select('id, song_id, name, scope, body_onsong, band:bands(name)')
           .in('song_id', songIds)
       : { data: [] },
+    songIds.length > 0
+      ? supabase
+          .from('audio_attachments')
+          .select('song_id, kind, url, created_at')
+          .in('song_id', songIds)
+          .eq('kind', 'youtube')
+          .order('created_at')
+      : { data: [] },
   ]);
 
   const versionsById = new Map<string, string>();
   for (const v of versionsRes.data ?? []) versionsById.set(v.id, v.body_onsong);
+
+  const youtubeBySong = new Map<string, string>();
+  for (const a of audioRes.data ?? []) {
+    if (!youtubeBySong.has(a.song_id as string) && typeof a.url === 'string') {
+      youtubeBySong.set(a.song_id as string, a.url);
+    }
+  }
 
   const variationsBySong = new Map<string, SlideVariation[]>();
   const variationBodiesById = new Map<string, string>();
@@ -92,6 +108,7 @@ export default async function MasterPage({
     originalKey: i.song.original_key,
     songTempo: i.song.default_tempo,
     songTimeSignature: i.song.time_signature,
+    youtubeUrl: youtubeBySong.get(i.song.id) ?? null,
     isCanonical: i.song.church_id === null,
     transpose: i.transpose_semitones,
     baseBody: versionsById.get(i.song.current_version_id ?? '') ?? '',
