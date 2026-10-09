@@ -45,6 +45,7 @@ import { exportElementToPdf } from '@/lib/pdf/export';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
+const RECEIVE_SHARED_AUDIO_KEY = 'songstage:receive-shared-audio';
 const CHORD_COLOR_KEY = 'songstage:chord-color';
 const SECTION_COLOR_KEY = 'songstage:section-color';
 /**
@@ -163,6 +164,12 @@ export function Master({
   const [metronomeSubdivisions, setMetronomeSubdivisions] = useState(1);
   const [metronomeStrongEvery, setMetronomeStrongEvery] = useState(4);
   const [emitMetronome, setEmitMetronome] = useState(false);
+  // Shared YouTube audio: the leader's play broadcasts, and devices with
+  // receiveSharedAudio on (typically the mixer PC feeding in-ears) follow.
+  const [ytPlaying, setYtPlaying] = useState(false);
+  const [ytSharedSongId, setYtSharedSongId] = useState<string | null>(null);
+  const [ytSharedUrl, setYtSharedUrl] = useState<string | null>(null);
+  const [receiveSharedAudio, setReceiveSharedAudio] = useState(false);
   const [chordColor, setChordColor] = useState(DEFAULT_CHORD_COLOR);
   const [sectionColor, setSectionColor] = useState(DEFAULT_SECTION_COLOR);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -414,6 +421,37 @@ export function Master({
     } catch {}
   }, [emitMetronome]);
 
+  // Leader stops YouTube when the active song changes — the recording on the
+  // previous slide is almost never what you want on the next one.
+  useEffect(() => {
+    if (roleRef.current !== 'master') return;
+    if (!ytPlaying) return;
+    setYtPlaying(false);
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'yt_update',
+      payload: { playing: false, songId: null, url: null },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSlide?.songId]);
+
+  // Restore / persist "receive shared audio" (this device plays what the
+  // leader plays, so a mixer PC can feed in-ears without extra routing).
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(RECEIVE_SHARED_AUDIO_KEY);
+      if (v === '1') setReceiveSharedAudio(true);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        RECEIVE_SHARED_AUDIO_KEY,
+        receiveSharedAudio ? '1' : '0'
+      );
+    } catch {}
+  }, [receiveSharedAudio]);
+
   // Drive the local audio engine from current metronome state and toggle
   useEffect(() => {
     if (emitMetronome && !metronomeRef.current) {
@@ -511,6 +549,23 @@ export function Master({
         event: 'metronome_update',
         payload: metronomeStateRef.current,
       });
+    });
+
+    channel.on('broadcast', { event: 'yt_update' }, ({ payload }) => {
+      const p = payload as {
+        playing?: boolean;
+        songId?: string | null;
+        url?: string | null;
+      };
+      setYtSharedSongId(p.songId ?? null);
+      setYtSharedUrl(p.url ?? null);
+      if (p.playing === true || p.playing === false) {
+        // Followers only start audio when they've opted in. The leader keeps
+        // controlling its own panel locally.
+        if (roleRef.current !== 'master') {
+          setYtPlaying(p.playing);
+        }
+      }
     });
 
     channel.on('broadcast', { event: 'metronome_update' }, ({ payload }) => {
@@ -1291,6 +1346,24 @@ export function Master({
           {emitMetronome ? '🔊' : '🔈'}
         </button>
 
+        <button
+          type="button"
+          onClick={() => setReceiveSharedAudio((v) => !v)}
+          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
+            receiveSharedAudio
+              ? 'border-accent text-accent'
+              : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+          title={
+            receiveSharedAudio
+              ? 'Ricevi audio YouTube del leader: acceso'
+              : 'Ricevi audio YouTube del leader: spento (attivare sul dispositivo collegato al mixer per inviare al click/in-ears)'
+          }
+          aria-pressed={receiveSharedAudio}
+        >
+          🎧
+        </button>
+
         <div className="relative">
           <button
             type="button"
@@ -1525,13 +1598,48 @@ export function Master({
               ref={fitRef}
               className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20"
             >
-              {!isViewer && slide.youtubeUrl && (
-                <YoutubePlayer
-                  key={slide.songId}
-                  url={slide.youtubeUrl}
-                  title={slide.title}
-                />
-              )}
+              {(() => {
+                // Which link + title the audio-only panel should use:
+                //  - leader: whatever is on the current slide.
+                //  - follower who opted in: whatever the leader last broadcast
+                //    (ytSharedUrl), so audio keeps playing even if the follower
+                //    is navigating a different song.
+                const panelUrl = isMaster
+                  ? slide.youtubeUrl
+                  : receiveSharedAudio
+                    ? ytSharedUrl ?? slide.youtubeUrl
+                    : null;
+                const panelTitle = isMaster
+                  ? slide.title
+                  : slide.songId === ytSharedSongId
+                    ? slide.title
+                    : 'Audio del leader';
+                if (!panelUrl) return null;
+                return (
+                  <YoutubePlayer
+                    key={panelUrl}
+                    url={panelUrl}
+                    title={panelTitle}
+                    playing={ytPlaying}
+                    canToggle={isMaster}
+                    onToggle={(next) => {
+                      if (!isMaster) return;
+                      setYtPlaying(next);
+                      setYtSharedSongId(slide.songId);
+                      setYtSharedUrl(slide.youtubeUrl);
+                      channelRef.current?.send({
+                        type: 'broadcast',
+                        event: 'yt_update',
+                        payload: {
+                          playing: next,
+                          songId: slide.songId,
+                          url: slide.youtubeUrl,
+                        },
+                      });
+                    }}
+                  />
+                );
+              })()}
               {song && (
                 <SongView
                   song={song}
