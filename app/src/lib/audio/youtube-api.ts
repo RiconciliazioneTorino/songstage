@@ -9,6 +9,9 @@ export type YtPlayer = {
   seekTo: (sec: number, allowSeekAhead: boolean) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
+  mute: () => void;
+  unMute: () => void;
+  setVolume: (v: number) => void;
   destroy: () => void;
 };
 

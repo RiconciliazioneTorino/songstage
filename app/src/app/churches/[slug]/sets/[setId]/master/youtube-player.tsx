@@ -43,9 +43,10 @@ export function YoutubePlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
 
-  // Build the YT.Player when this device has audio on and we have a video id.
+  // Build the YT.Player once per video id. It starts muted so autoplay is
+  // allowed with no gesture; audio is gated with mute()/unMute() below.
   useEffect(() => {
-    if (!audible || !videoId || !hostRef.current) return;
+    if (!videoId || !hostRef.current) return;
     let cancelled = false;
     loadYouTubeApi().then((YT) => {
       if (cancelled || !hostRef.current) return;
@@ -61,6 +62,7 @@ export function YoutubePlayer({
           rel: 0,
           playsinline: 1,
           iv_load_policy: 3,
+          mute: 1,
         },
         events: {
           onReady: ({ target }) => {
@@ -88,7 +90,22 @@ export function YoutubePlayer({
       setDuration(0);
       setCurrentTime(0);
     };
-  }, [audible, videoId]);
+  }, [videoId]);
+
+  // Audio gate: mute/unmute without tearing down the player. Keeping state
+  // across toggles means a slave can silence itself without pausing the
+  // leader's broadcast or losing its own playback position.
+  useEffect(() => {
+    if (!ready || !playerRef.current) return;
+    try {
+      if (audible) {
+        playerRef.current.unMute();
+        playerRef.current.setVolume(100);
+      } else {
+        playerRef.current.mute();
+      }
+    } catch {}
+  }, [audible, ready]);
 
   // Apply play/pause to the local player when the controlling state flips.
   useEffect(() => {
@@ -209,23 +226,22 @@ export function YoutubePlayer({
         </span>
       </div>
 
-      {/* Audio sink: an off-screen 1×1 host for YT.Player. Only mounted when
-          this device is set to play audio. */}
-      {audible && (
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            overflow: 'hidden',
-            left: -9999,
-            top: -9999,
-          }}
-        >
-          <div ref={hostRef} />
-        </div>
-      )}
+      {/* Audio sink: an off-screen 1×1 host for YT.Player. Always mounted so
+          the slider position and sync keep flowing even with 🎧 off — the
+          `audible` prop just mutes / unmutes the running player. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          left: -9999,
+          top: -9999,
+        }}
+      >
+        <div ref={hostRef} />
+      </div>
     </div>
   );
 }
