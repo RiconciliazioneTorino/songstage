@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { applyOrder, resolveIncomingIndex, type ProjectionState } from '@/lib/sets/projection';
 import type { Slide } from '../master/master';
 import { YoutubePlayer } from '../master/youtube-player';
+import { MixerButton } from '../mixer';
 
 /**
  * This screen's own zoom, multiplied on top of whatever size the leader sends.
@@ -23,6 +24,7 @@ const ZOOM_KEY = 'songstage:projector-zoom';
  */
 const SHOW_CHORDS_KEY = 'songstage:projector-show-chords';
 const RECEIVE_SHARED_AUDIO_KEY = 'songstage:receive-shared-audio';
+const YT_VOLUME_KEY = 'songstage:yt-volume';
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4;
 
@@ -52,6 +54,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
   const [ytUrl, setYtUrl] = useState<string | null>(null);
   const [ytTitle, setYtTitle] = useState<string>('');
   const [ytTime, setYtTime] = useState<number | null>(null);
+  const [ytVolume, setYtVolume] = useState(100);
   // The controls sit out of the way until someone interacts: this screen is
   // pointed at a congregation, not at an operator.
   const [controlsVisible, setControlsVisible] = useState(false);
@@ -73,8 +76,16 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
       if (chords !== null) setShowChordsLocal(chords === '1');
       if (localStorage.getItem(RECEIVE_SHARED_AUDIO_KEY) === '1')
         setReceiveSharedAudio(true);
+      const yv = Number.parseFloat(localStorage.getItem(YT_VOLUME_KEY) ?? '');
+      if (Number.isFinite(yv) && yv >= 0 && yv <= 100) setYtVolume(yv);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(YT_VOLUME_KEY, String(ytVolume));
+    } catch {}
+  }, [ytVolume]);
 
   // Shout to other tabs on this device: "I'm playing the leader's audio".
   // The master/sets tab silences itself while the heartbeat is fresh so the
@@ -388,6 +399,18 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
         >
           🎧
         </button>
+        <MixerButton
+          metronomeVolume={0}
+          onMetronomeVolumeChange={() => {}}
+          ytVolume={ytVolume}
+          onYtVolumeChange={(v) => {
+            setYtVolume(v);
+            revealControls();
+          }}
+          metronomeAvailable={false}
+          ytAvailable={receiveSharedAudio}
+          showMetronome={false}
+        />
       </div>
 
       {ytUrl && (
@@ -398,6 +421,7 @@ export function Projector({ setId, slides }: { setId: string; slides: Slide[] })
           title={ytTitle || 'YouTube'}
           playing={ytPlaying}
           audible={receiveSharedAudio}
+          volume={ytVolume}
           canControl={false}
           followerTime={ytTime}
           onToggle={() => {}}

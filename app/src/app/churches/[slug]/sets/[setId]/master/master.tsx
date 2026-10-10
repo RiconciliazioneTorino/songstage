@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { parseOnSong, SongView } from '@/lib/onsong';
 import { YoutubePlayer } from './youtube-player';
+import { MixerButton } from '../mixer';
 import { useFitToWidth } from '@/lib/onsong/useFitToWidth';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
@@ -46,6 +47,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
 const RECEIVE_SHARED_AUDIO_KEY = 'songstage:receive-shared-audio';
+const METRONOME_VOLUME_KEY = 'songstage:metronome-volume';
+const YT_VOLUME_KEY = 'songstage:yt-volume';
 const CHORD_COLOR_KEY = 'songstage:chord-color';
 const SECTION_COLOR_KEY = 'songstage:section-color';
 /**
@@ -213,6 +216,9 @@ export function Master({
   const [ytSharedUrl, setYtSharedUrl] = useState<string | null>(null);
   const [ytSharedTime, setYtSharedTime] = useState<number | null>(null);
   const [receiveSharedAudio, setReceiveSharedAudio] = useState(false);
+  // Per-device output levels. Persisted to localStorage below.
+  const [metronomeVolume, setMetronomeVolume] = useState(60);
+  const [ytVolume, setYtVolume] = useState(100);
   // Another tab on this device (typically the projector) has claimed the YT
   // audio sink. Silence this tab's player while the heartbeat is fresh so the
   // same track doesn't play twice from the same speakers.
@@ -528,10 +534,38 @@ export function Master({
     } catch {}
   }, [receiveSharedAudio]);
 
+  // Restore / persist per-device output volumes.
+  useEffect(() => {
+    try {
+      const mv = Number.parseFloat(localStorage.getItem(METRONOME_VOLUME_KEY) ?? '');
+      if (Number.isFinite(mv) && mv >= 0 && mv <= 100) setMetronomeVolume(mv);
+      const yv = Number.parseFloat(localStorage.getItem(YT_VOLUME_KEY) ?? '');
+      if (Number.isFinite(yv) && yv >= 0 && yv <= 100) setYtVolume(yv);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(METRONOME_VOLUME_KEY, String(metronomeVolume));
+    } catch {}
+  }, [metronomeVolume]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(YT_VOLUME_KEY, String(ytVolume));
+    } catch {}
+  }, [ytVolume]);
+
+  // Apply the metronome output level live.
+  useEffect(() => {
+    metronomeRef.current?.setVolume(Math.max(0, Math.min(100, metronomeVolume)) / 100);
+  }, [metronomeVolume]);
+
   // Drive the local audio engine from current metronome state and toggle
   useEffect(() => {
     if (emitMetronome && !metronomeRef.current) {
       metronomeRef.current = new Metronome();
+      metronomeRef.current.setVolume(
+        Math.max(0, Math.min(100, metronomeVolume)) / 100
+      );
     }
     if (!metronomeRef.current) return;
     if (emitMetronome && metronomeRunning) {
@@ -1451,6 +1485,15 @@ export function Master({
           🎧
         </button>
 
+        <MixerButton
+          metronomeVolume={metronomeVolume}
+          onMetronomeVolumeChange={setMetronomeVolume}
+          ytVolume={ytVolume}
+          onYtVolumeChange={setYtVolume}
+          metronomeAvailable={emitMetronome}
+          ytAvailable={receiveSharedAudio && !audioClaimedElsewhere}
+        />
+
         <div className="relative">
           <button
             type="button"
@@ -1706,6 +1749,7 @@ export function Master({
                     title={panelTitle}
                     playing={ytPlaying}
                     audible={receiveSharedAudio && !audioClaimedElsewhere}
+                    volume={ytVolume}
                     canControl={isMaster}
                     followerTime={isMaster ? null : ytSharedTime}
                     onToggle={(next) => {

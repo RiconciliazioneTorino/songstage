@@ -26,6 +26,7 @@ export function YoutubePlayer({
   followerTime,
   onLeaderUpdate,
   headless = false,
+  volume = 100,
 }: {
   url: string;
   title: string;
@@ -37,6 +38,8 @@ export function YoutubePlayer({
   onLeaderUpdate?: (time: number) => void;
   /** Hide the UI and only mount the audio sink. For the projector screen. */
   headless?: boolean;
+  /** 0–100. Applied to the YT.Player output when audio is unmuted. */
+  volume?: number;
 }) {
   const videoId = extractVideoId(url);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -103,12 +106,12 @@ export function YoutubePlayer({
     try {
       if (audible) {
         playerRef.current.unMute();
-        playerRef.current.setVolume(100);
+        playerRef.current.setVolume(Math.max(0, Math.min(100, volume)));
       } else {
         playerRef.current.mute();
       }
     } catch {}
-  }, [audible, ready]);
+  }, [audible, ready, volume]);
 
   // Apply play/pause to the local player when the controlling state flips.
   useEffect(() => {

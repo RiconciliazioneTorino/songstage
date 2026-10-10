@@ -10,11 +10,14 @@ import { applyOrder, resolveIncomingIndex, type ProjectionState } from '@/lib/se
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { Slide } from '../master/master';
 import { YoutubePlayer } from '../master/youtube-player';
+import { MixerButton } from '../mixer';
 
 const EMIT_METRONOME_KEY = 'songstage:emit-metronome';
 const RECEIVE_SHARED_AUDIO_KEY = 'songstage:receive-shared-audio';
 const SHOW_CHORDS_KEY = 'songstage:show-chords';
 const FONT_SCALE_KEY = 'songstage:font-scale';
+const METRONOME_VOLUME_KEY = 'songstage:metronome-volume';
+const YT_VOLUME_KEY = 'songstage:yt-volume';
 
 export function ViewConsole({
   slug,
@@ -42,6 +45,8 @@ export function ViewConsole({
   const [emitMetronome, setEmitMetronome] = useState(false);
   const [receiveSharedAudio, setReceiveSharedAudio] = useState(false);
   const [audioClaimedElsewhere, setAudioClaimedElsewhere] = useState(false);
+  const [metronomeVolume, setMetronomeVolume] = useState(60);
+  const [ytVolume, setYtVolume] = useState(100);
   const [showChords, setShowChords] = useState(true);
   const [fontScale, setFontScale] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -102,6 +107,29 @@ export function ViewConsole({
       localStorage.setItem(FONT_SCALE_KEY, String(fontScale));
     } catch {}
   }, [fontScale]);
+  useEffect(() => {
+    try {
+      const mv = Number.parseFloat(localStorage.getItem(METRONOME_VOLUME_KEY) ?? '');
+      if (Number.isFinite(mv) && mv >= 0 && mv <= 100) setMetronomeVolume(mv);
+      const yv = Number.parseFloat(localStorage.getItem(YT_VOLUME_KEY) ?? '');
+      if (Number.isFinite(yv) && yv >= 0 && yv <= 100) setYtVolume(yv);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(METRONOME_VOLUME_KEY, String(metronomeVolume));
+    } catch {}
+  }, [metronomeVolume]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(YT_VOLUME_KEY, String(ytVolume));
+    } catch {}
+  }, [ytVolume]);
+  useEffect(() => {
+    metronomeRef.current?.setVolume(
+      Math.max(0, Math.min(100, metronomeVolume)) / 100
+    );
+  }, [metronomeVolume]);
 
   // Another tab (typically the projector) has claimed the audio sink.
   useEffect(() => {
@@ -238,7 +266,12 @@ export function ViewConsole({
 
   // Local metronome driver, same engine as the master uses, but passive.
   useEffect(() => {
-    if (emitMetronome && !metronomeRef.current) metronomeRef.current = new Metronome();
+    if (emitMetronome && !metronomeRef.current) {
+      metronomeRef.current = new Metronome();
+      metronomeRef.current.setVolume(
+        Math.max(0, Math.min(100, metronomeVolume)) / 100
+      );
+    }
     const m = metronomeRef.current;
     if (!m) return;
     if (emitMetronome && mtRunning) {
@@ -537,6 +570,20 @@ export function ViewConsole({
         >
           🎧
         </button>
+        <MixerButton
+          metronomeVolume={metronomeVolume}
+          onMetronomeVolumeChange={(v) => {
+            setMetronomeVolume(v);
+            revealControls();
+          }}
+          ytVolume={ytVolume}
+          onYtVolumeChange={(v) => {
+            setYtVolume(v);
+            revealControls();
+          }}
+          metronomeAvailable={emitMetronome}
+          ytAvailable={effectiveAudible}
+        />
       </div>
 
       {requestError && (
@@ -563,6 +610,7 @@ export function ViewConsole({
           title={ytTitle || slide.title}
           playing={ytPlaying}
           audible={effectiveAudible}
+          volume={ytVolume}
           canControl={false}
           followerTime={ytTime}
           onToggle={() => {}}
