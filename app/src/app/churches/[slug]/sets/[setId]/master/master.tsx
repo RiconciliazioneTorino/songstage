@@ -1492,6 +1492,7 @@ export function Master({
           onYtVolumeChange={setYtVolume}
           metronomeAvailable={emitMetronome}
           ytAvailable={receiveSharedAudio && !audioClaimedElsewhere}
+          openDirection="down"
         />
 
         <div className="relative">
