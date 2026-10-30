@@ -552,6 +552,58 @@ export type Database = {
           },
         ];
       };
+      set_public_links: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          expires_at: string;
+          id: string;
+          label: string | null;
+          last_viewed_at: string | null;
+          revoked_at: string | null;
+          set_id: string;
+          token: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at: string;
+          id?: string;
+          label?: string | null;
+          last_viewed_at?: string | null;
+          revoked_at?: string | null;
+          set_id: string;
+          token: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at?: string;
+          id?: string;
+          label?: string | null;
+          last_viewed_at?: string | null;
+          revoked_at?: string | null;
+          set_id?: string;
+          token?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "set_public_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "set_public_links_set_id_fkey";
+            columns: ["set_id"];
+            isOneToOne: false;
+            referencedRelation: "sets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       set_shares: {
         Row: {
           permission: Database["public"]["Enums"]["set_permission"];
@@ -902,6 +954,15 @@ export type Database = {
           slug: string;
         }[];
       };
+      create_public_set_link: {
+        Args: { p_days?: number; p_set_id: string };
+        Returns: {
+          expires_at: string;
+          token: string;
+        }[];
+      };
+      public_set_by_token: { Args: { p_token: string }; Returns: Json };
+      revoke_public_set_link: { Args: { p_link_id: string }; Returns: undefined };
       find_shareable_user: { Args: { p_email: string; p_set_id: string }; Returns: string };
       has_church_role: {
         Args: { p_church_id: string; p_roles: Database["public"]["Enums"]["church_role"][] };

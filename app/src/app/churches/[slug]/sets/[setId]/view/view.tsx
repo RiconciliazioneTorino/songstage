@@ -28,6 +28,7 @@ export function ViewConsole({
   currentUserId,
   currentUserEmail,
   liveMasterIsFresh,
+  publicMode = false,
 }: {
   slug: string;
   setId: string;
@@ -37,6 +38,9 @@ export function ViewConsole({
   currentUserId: string;
   currentUserEmail: string;
   liveMasterIsFresh: boolean;
+  /** Opened through a public share link: an anonymous guest with no account,
+   *  so nothing that leads back into the app is offered. */
+  publicMode?: boolean;
 }) {
   const router = useRouter();
   const [slidesLocal, setSlidesLocal] = useState(slides);
@@ -344,12 +348,14 @@ export function ViewConsole({
       <main className="min-h-screen flex items-center justify-center p-6">
         <div className="text-center">
           <p className="text-zinc-400 mb-4">Questo set non ha canzoni.</p>
-          <Link
-            href={`/churches/${slug}/sets/${setId}`}
-            className="text-sm text-accent hover:underline"
-          >
-            ← Torna al set
-          </Link>
+          {!publicMode && (
+            <Link
+              href={`/churches/${slug}/sets/${setId}`}
+              className="text-sm text-accent hover:underline"
+            >
+              ← Torna al set
+            </Link>
+          )}
         </div>
       </main>
     );
@@ -392,13 +398,19 @@ export function ViewConsole({
           />
           <aside className="fixed top-0 bottom-0 left-0 w-64 bg-panel border-r border-border overflow-auto z-40 shadow-2xl">
             <div className="p-3 border-b border-border flex items-center justify-between">
-              <Link
-                href={`/churches/${slug}/sets/${setId}`}
-                className="text-sm text-zinc-400 hover:text-white truncate"
-                title={setName}
-              >
-                ← {setName}
-              </Link>
+              {publicMode ? (
+                <span className="text-sm text-zinc-400 truncate" title={setName}>
+                  {setName}
+                </span>
+              ) : (
+                <Link
+                  href={`/churches/${slug}/sets/${setId}`}
+                  className="text-sm text-zinc-400 hover:text-white truncate"
+                  title={setName}
+                >
+                  ← {setName}
+                </Link>
+              )}
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="min-w-[2rem] h-8 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center flex-shrink-0 ml-2"
