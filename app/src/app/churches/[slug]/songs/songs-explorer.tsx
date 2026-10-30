@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { bulkDeleteSongs } from '@/lib/songs/actions';
 import { createSetFromSongs } from '@/lib/sets/actions';
-import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
+import {
+  SongSnippet,
+  matchesTitleOrArtist,
+  sortByRelevance,
+  useSongContentSearch,
+} from '@/lib/songs/content-search';
 
 export type SongRow = {
   id: string;
@@ -108,15 +113,9 @@ export function SongsExplorer({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const range = TEMPO_RANGES.find((r) => r.id === tempoRange) ?? null;
-    return songs.filter((s) => {
+    const kept = songs.filter((s) => {
       if (!showCanonical && s.church_id === null) return false;
-      if (
-        q &&
-        !s.title.toLowerCase().includes(q) &&
-        !(s.artist ?? '').toLowerCase().includes(q) &&
-        !contentMatches.has(s.id)
-      )
-        return false;
+      if (q && !matchesTitleOrArtist(s, q) && !contentMatches.has(s.id)) return false;
       if (artist && s.artist !== artist) return false;
       if (key && s.original_key !== key) return false;
       if (range) {
@@ -125,6 +124,9 @@ export function SongsExplorer({
       }
       return true;
     });
+    // A song whose title the leader typed outranks the ones that merely sing
+    // the same words.
+    return sortByRelevance(kept, q, contentMatches);
   }, [songs, query, artist, key, tempoRange, showCanonical, contentMatches]);
 
   const anyFilter = query || artist || key || tempoRange;

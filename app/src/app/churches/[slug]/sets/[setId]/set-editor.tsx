@@ -22,7 +22,12 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { addSongToSet, removeSetItem, reorderSetItems, updateSetItem } from '@/lib/sets/actions';
-import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
+import {
+  SongSnippet,
+  matchesTitleOrArtist,
+  sortByRelevance,
+  useSongContentSearch,
+} from '@/lib/songs/content-search';
 
 type Song = {
   id: string;
@@ -109,16 +114,14 @@ export function SetEditor({
   const { matches: contentMatches } = useSongContentSearch(pickerQuery, churchId);
 
   const inSet = new Set(items.map((i) => i.song.id));
-  const query = pickerQuery.trim().toLowerCase();
-  const filtered = availableSongs
-    .filter((s) => !inSet.has(s.id))
-    .filter(
-      (s) =>
-        !query ||
-        s.title.toLowerCase().includes(query) ||
-        (s.artist ?? '').toLowerCase().includes(query) ||
-        contentMatches.has(s.id)
-    );
+  const query = pickerQuery.trim();
+  const filtered = sortByRelevance(
+    availableSongs
+      .filter((s) => !inSet.has(s.id))
+      .filter((s) => !query || matchesTitleOrArtist(s, query) || contentMatches.has(s.id)),
+    query,
+    contentMatches
+  );
 
   function refresh() {
     startTransition(() => router.refresh());

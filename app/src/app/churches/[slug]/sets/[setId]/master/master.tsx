@@ -9,7 +9,12 @@ import { MixerButton } from '../mixer';
 import { useFitToWidth } from '@/lib/onsong/useFitToWidth';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
-import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
+import {
+  SongSnippet,
+  matchesTitleOrArtist,
+  sortByRelevance,
+  useSongContentSearch,
+} from '@/lib/songs/content-search';
 import {
   addSongToSet,
   heartbeatSetMaster,
@@ -1167,14 +1172,12 @@ export function Master({
   const { matches: songContentMatches } = useSongContentSearch(pickerQuery, churchId);
 
   const filteredSongs = useMemo(() => {
-    const q = pickerQuery.trim().toLowerCase();
+    const q = pickerQuery.trim();
     if (!q) return availableSongs;
-    return availableSongs.filter(
-      (s) =>
-        s.title.toLowerCase().includes(q) ||
-        (s.artist ?? '').toLowerCase().includes(q) ||
-        songContentMatches.has(s.id)
+    const kept = availableSongs.filter(
+      (s) => matchesTitleOrArtist(s, q) || songContentMatches.has(s.id)
     );
+    return sortByRelevance(kept, q, songContentMatches);
   }, [availableSongs, pickerQuery, songContentMatches]);
 
   const slide = currentSlide;
