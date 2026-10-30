@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
+import {
+  SongSnippet,
+  matchesTitleOrArtist,
+  sortByRelevance,
+  useSongContentSearch,
+} from '@/lib/songs/content-search';
 
 export type CanonicalSong = {
   id: string;
@@ -17,14 +22,10 @@ export function LibraryExplorer({ songs }: { songs: CanonicalSong[] }) {
   const { matches: contentMatches } = useSongContentSearch(query, null);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return songs;
-    return songs.filter(
-      (s) =>
-        s.title.toLowerCase().includes(q) ||
-        (s.artist ?? '').toLowerCase().includes(q) ||
-        contentMatches.has(s.id)
-    );
+    const kept = songs.filter((s) => matchesTitleOrArtist(s, q) || contentMatches.has(s.id));
+    return sortByRelevance(kept, q, contentMatches);
   }, [songs, query, contentMatches]);
 
   return (

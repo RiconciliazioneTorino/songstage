@@ -27,6 +27,8 @@ export type SongContentMatch = {
   /** Fragment that matched, with the hit wrapped in « ». */
   snippet: string;
   source: 'version' | 'variation';
+  /** Position in the ranked result, best first. */
+  order: number;
 };
 
 /**
@@ -79,6 +81,8 @@ export function useSongContentSearch(
           songId: row.song_id,
           snippet: row.snippet ?? '',
           source: row.source === 'variation' ? 'variation' : 'version',
+          // The function returns them best first; keep that.
+          order: next.size,
         });
       }
       setMatches(next);
@@ -88,6 +92,63 @@ export function useSongContentSearch(
   }, [trimmed, churchId]);
 
   return { matches, searching };
+}
+
+/** Lowercased and stripped of accents, so "perche" matches "perché". */
+export function normalizeForSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim();
+}
+
+export type SearchableSong = { id: string; title: string; artist: string | null };
+
+/** The client-side half of the search: title and artist, accent-insensitive. */
+export function matchesTitleOrArtist(song: SearchableSong, query: string): boolean {
+  const q = normalizeForSearch(query);
+  if (!q) return true;
+  return (
+    normalizeForSearch(song.title).includes(q) ||
+    normalizeForSearch(song.artist ?? '').includes(q)
+  );
+}
+
+/**
+ * How well a song answers the query, lower being better.
+ *
+ * Someone who types a title means that song, even when a dozen others happen
+ * to sing the same words: the title comes first, then the artist, and the
+ * songs found only by their text come last in the order Postgres ranked them.
+ */
+function relevance(song: SearchableSong, query: string, contentOrder: number | null): number {
+  const q = normalizeForSearch(query);
+  const title = normalizeForSearch(song.title);
+  if (title === q) return 0;
+  if (title.startsWith(q)) return 1;
+  if (title.includes(q)) return 2;
+  if (normalizeForSearch(song.artist ?? '').includes(q)) return 3;
+  // Keep the ranked order of the content matches, below every name match.
+  return 4 + (contentOrder ?? 0) / 100000;
+}
+
+/**
+ * Orders a filtered list by relevance to `query`. An empty query leaves the
+ * list as it was, which is the alphabetical order the surfaces load it in.
+ */
+export function sortByRelevance<T extends SearchableSong>(
+  songs: T[],
+  query: string,
+  matches: Map<string, SongContentMatch>
+): T[] {
+  if (!normalizeForSearch(query)) return songs;
+  return [...songs].sort((a, b) => {
+    const da = relevance(a, query, matches.get(a.id)?.order ?? null);
+    const db = relevance(b, query, matches.get(b.id)?.order ?? null);
+    if (da !== db) return da - db;
+    return a.title.localeCompare(b.title);
+  });
 }
 
 export type SnippetPart = { text: string; hit: boolean };
