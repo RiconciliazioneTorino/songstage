@@ -8,6 +8,8 @@ import { AudioPanel } from './audio-panel';
 import { VariationsActions } from './variations-actions';
 import { PromoteCanonicalButton } from './promote-canonical-button';
 import { AdoptCanonicalButton } from './adopt-canonical-button';
+import { AddToSetButton } from './add-to-set-button';
+import { writableSetsForSong } from '@/lib/sets/writable';
 
 export default async function SongPage({
   params,
@@ -38,6 +40,11 @@ export default async function SongPage({
 
   const contextChurchId = song.church_id ?? contextChurch?.id ?? null;
   const isSongChurchScoped = song.church_id !== null;
+
+  // Independent of the batch below, so it travels alongside it.
+  const writableSetsPromise = contextChurchId
+    ? writableSetsForSong(supabase, { churchId: contextChurchId, userId: user.id, songId })
+    : Promise.resolve([]);
 
   // Everything below only needs the song id (plus the church id for membership),
   // so it goes out in one batch instead of a chain of round trips.
@@ -117,6 +124,8 @@ export default async function SongPage({
     !adoptedCopyId &&
     (myMembership?.role === 'admin' || myMembership?.role === 'director');
 
+  const writableSets = await writableSetsPromise;
+
   const baseBody = (bodyRes.data?.body_onsong as string | undefined) ?? '';
   const versions = versionsRes.data;
 
@@ -182,6 +191,9 @@ export default async function SongPage({
             ← Canzoni
           </Link>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            {writableSets.length > 0 && (
+              <AddToSetButton slug={slug} songId={songId} sets={writableSets} />
+            )}
             {canPromote && (
               <PromoteCanonicalButton songId={songId} title={song.title} />
             )}
