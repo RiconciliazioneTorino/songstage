@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { addSongToSet, removeSetItem, reorderSetItems, updateSetItem } from '@/lib/sets/actions';
+import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
 
 type Song = {
   id: string;
@@ -50,10 +51,12 @@ type Item = {
 
 export function SetEditor({
   setId,
+  churchId,
   items: initialItems,
   availableSongs,
 }: {
   setId: string;
+  churchId: string;
   items: Item[];
   availableSongs: Song[];
 }) {
@@ -102,6 +105,9 @@ export function SetEditor({
     refresh();
   }
 
+  // Title and artist here, the bodies in Postgres — see content-search.tsx.
+  const { matches: contentMatches } = useSongContentSearch(pickerQuery, churchId);
+
   const inSet = new Set(items.map((i) => i.song.id));
   const query = pickerQuery.trim().toLowerCase();
   const filtered = availableSongs
@@ -110,7 +116,8 @@ export function SetEditor({
       (s) =>
         !query ||
         s.title.toLowerCase().includes(query) ||
-        (s.artist ?? '').toLowerCase().includes(query)
+        (s.artist ?? '').toLowerCase().includes(query) ||
+        contentMatches.has(s.id)
     );
 
   function refresh() {
@@ -158,7 +165,7 @@ export function SetEditor({
           <div className="flex gap-2">
             <input
               autoFocus
-              placeholder="Cerca canzone…"
+              placeholder="Cerca per titolo, artista o testo…"
               value={pickerQuery}
               onChange={(e) => setPickerQuery(e.target.value)}
               className="flex-1 px-3 py-2 rounded-md bg-bg border border-border focus:border-accent outline-none text-sm"
@@ -184,9 +191,12 @@ export function SetEditor({
                   }}
                   className="w-full text-left px-2 py-2 hover:bg-bg flex items-center justify-between"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm">{s.title}</div>
                     {s.artist && <div className="text-xs text-zinc-500">{s.artist}</div>}
+                    {contentMatches.get(s.id) && (
+                      <SongSnippet match={contentMatches.get(s.id)!} />
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {s.isCanonical && (

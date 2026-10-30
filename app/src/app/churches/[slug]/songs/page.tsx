@@ -87,7 +87,7 @@ export default async function SongsPage({ params }: { params: Promise<{ slug: st
           Non ci sono ancora canzoni. {canCreate && <>Inizia importando da OnSong.</>}
         </div>
       ) : (
-        <SongsExplorer slug={church.slug} songs={songs ?? []} canManage={canCreate} />
+        <SongsExplorer slug={church.slug} churchId={church.id} songs={songs ?? []} canManage={canCreate} />
       )}
     </main>
   );

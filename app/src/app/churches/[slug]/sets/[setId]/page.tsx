@@ -128,6 +128,7 @@ export default async function SetDetailPage({
 
       <SetEditor
         setId={set.id}
+        churchId={church.id}
         items={itemsWithVariations}
         availableSongs={songs}
       />
