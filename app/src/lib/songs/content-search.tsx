@@ -105,7 +105,11 @@ export function parseSnippet(snippet: string): SnippetPart[] {
   for (const piece of snippet.split(/(«[^»]*»)/g)) {
     if (!piece) continue;
     const hit = piece.startsWith('«') && piece.endsWith('»');
-    const text = (hit ? piece.slice(1, -1) : piece).replace(/\s+/g, ' ');
+    // Some imported bodies carry the line break as the two characters `\r`
+    // rather than the control character; both are just a break to the reader.
+    const text = (hit ? piece.slice(1, -1) : piece)
+      .replace(/\\[rn]/g, ' ')
+      .replace(/\s+/g, ' ');
     if (!text) continue;
     parts.push({ text, hit });
   }

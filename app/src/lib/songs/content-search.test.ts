@@ -23,6 +23,14 @@ describe('parseSnippet', () => {
     ]);
   });
 
+  it('treats an escaped line break from an imported body as a break', () => {
+    expect(parseSnippet('Verso:\\r G «Voglio» gridare')).toEqual([
+      { text: 'Verso: G ', hit: false },
+      { text: 'Voglio', hit: true },
+      { text: ' gridare', hit: false },
+    ]);
+  });
+
   it('is empty for a snippet with nothing to show', () => {
     expect(parseSnippet('')).toEqual([]);
     expect(parseSnippet('   \n ')).toEqual([]);
