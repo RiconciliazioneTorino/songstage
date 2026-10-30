@@ -134,6 +134,7 @@ export default async function MasterPage({
       setId={set.id}
       setName={set.name}
       slug={slug}
+      churchId={set.church_id as string}
       slides={slides}
       availableSongs={(availableSongs ?? []).map((s) => ({
         id: s.id as string,

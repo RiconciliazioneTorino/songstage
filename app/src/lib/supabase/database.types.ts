@@ -989,6 +989,14 @@ export type Database = {
       is_curator: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_set_shared_with_me: { Args: { p_set_id: string }; Returns: boolean };
       release_set_master: { Args: { p_set_id: string }; Returns: undefined };
+      search_song_content: {
+        Args: { p_church_id?: string | null; p_limit?: number; p_query: string };
+        Returns: {
+          snippet: string;
+          song_id: string;
+          source: string;
+        }[];
+      };
       search_users_for_church: {
         Args: { p_church_id: string; p_query: string };
         Returns: {

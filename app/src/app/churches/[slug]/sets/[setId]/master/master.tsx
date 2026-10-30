@@ -9,6 +9,7 @@ import { MixerButton } from '../mixer';
 import { useFitToWidth } from '@/lib/onsong/useFitToWidth';
 import { createClient } from '@/lib/supabase/client';
 import { saveSlideEdit } from '@/lib/songs/actions';
+import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
 import {
   addSongToSet,
   heartbeatSetMaster,
@@ -146,6 +147,7 @@ export function Master({
   setName,
   slug,
   slides,
+  churchId,
   availableSongs,
   currentUserId,
   currentUserEmail,
@@ -157,6 +159,7 @@ export function Master({
   setName: string;
   slug: string;
   slides: Slide[];
+  churchId: string;
   availableSongs: AvailableSong[];
   currentUserId: string;
   currentUserEmail: string;
@@ -1160,15 +1163,19 @@ export function Master({
     ? Math.max(0, Math.ceil((incomingRequest.expiresAt - nowTick) / 1000))
     : 0;
 
+  // Title and artist here, the bodies in Postgres — see content-search.tsx.
+  const { matches: songContentMatches } = useSongContentSearch(pickerQuery, churchId);
+
   const filteredSongs = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
     if (!q) return availableSongs;
     return availableSongs.filter(
       (s) =>
         s.title.toLowerCase().includes(q) ||
-        (s.artist ?? '').toLowerCase().includes(q)
+        (s.artist ?? '').toLowerCase().includes(q) ||
+        songContentMatches.has(s.id)
     );
-  }, [availableSongs, pickerQuery]);
+  }, [availableSongs, pickerQuery, songContentMatches]);
 
   const slide = currentSlide;
   const song = useMemo(() => (slide ? parseOnSong(slide.body) : null), [slide]);
@@ -1947,7 +1954,7 @@ export function Master({
             <div className="p-3 border-b border-border flex items-center gap-2">
               <input
                 autoFocus
-                placeholder="Cerca canzone…"
+                placeholder="Cerca per titolo, artista o testo…"
                 value={pickerQuery}
                 onChange={(e) => setPickerQuery(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-md bg-bg border border-border focus:border-accent outline-none text-sm"
@@ -1984,10 +1991,13 @@ export function Master({
                     }}
                     className="w-full text-left px-4 py-3 hover:bg-bg flex items-center justify-between disabled:opacity-50"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-sm">{s.title}</div>
                       {s.artist && (
                         <div className="text-xs text-zinc-500">{s.artist}</div>
+                      )}
+                      {songContentMatches.get(s.id) && (
+                        <SongSnippet match={songContentMatches.get(s.id)!} />
                       )}
                     </div>
                     <div className="flex items-center gap-2">

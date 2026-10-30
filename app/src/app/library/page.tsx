@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { LibraryExplorer } from './library-explorer';
 
 export default async function LibraryPage() {
   const supabase = await createClient();
@@ -46,27 +47,7 @@ export default async function LibraryPage() {
           Nessuna canzone canonica ancora.
         </div>
       ) : (
-        <div className="space-y-2">
-          {(songs ?? []).map((s) => (
-            <Link
-              key={s.id}
-              href={`/library/${s.id}`}
-              className="block rounded-md border border-border bg-panel p-3 hover:border-accent transition"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{s.title}</div>
-                  {s.artist && <div className="text-xs text-zinc-500">{s.artist}</div>}
-                </div>
-                {s.original_key && (
-                  <span className="text-xs text-zinc-400 px-2 py-0.5 rounded-full bg-bg border border-border">
-                    {s.original_key}
-                  </span>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
+        <LibraryExplorer songs={songs ?? []} />
       )}
     </main>
   );

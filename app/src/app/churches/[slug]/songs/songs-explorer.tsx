@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { bulkDeleteSongs } from '@/lib/songs/actions';
 import { createSetFromSongs } from '@/lib/sets/actions';
+import { SongSnippet, useSongContentSearch } from '@/lib/songs/content-search';
 
 export type SongRow = {
   id: string;
@@ -41,10 +42,12 @@ const TEMPO_RANGES: {
 
 export function SongsExplorer({
   slug,
+  churchId,
   songs,
   canManage,
 }: {
   slug: string;
+  churchId: string;
   songs: SongRow[];
   canManage: boolean;
 }) {
@@ -98,12 +101,21 @@ export function SongsExplorer({
     return { canonical, church };
   }, [songs]);
 
+  // Title and artist are matched here, instantly; the bodies are matched in
+  // Postgres and come back keyed by song id.
+  const { matches: contentMatches } = useSongContentSearch(query, churchId);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const range = TEMPO_RANGES.find((r) => r.id === tempoRange) ?? null;
     return songs.filter((s) => {
       if (!showCanonical && s.church_id === null) return false;
-      if (q && !s.title.toLowerCase().includes(q) && !(s.artist ?? '').toLowerCase().includes(q))
+      if (
+        q &&
+        !s.title.toLowerCase().includes(q) &&
+        !(s.artist ?? '').toLowerCase().includes(q) &&
+        !contentMatches.has(s.id)
+      )
         return false;
       if (artist && s.artist !== artist) return false;
       if (key && s.original_key !== key) return false;
@@ -113,7 +125,7 @@ export function SongsExplorer({
       }
       return true;
     });
-  }, [songs, query, artist, key, tempoRange, showCanonical]);
+  }, [songs, query, artist, key, tempoRange, showCanonical, contentMatches]);
 
   const anyFilter = query || artist || key || tempoRange;
   const allFilteredIds = useMemo(() => filtered.map((s) => s.id), [filtered]);
@@ -197,7 +209,7 @@ export function SongsExplorer({
       <div className="rounded-md border border-border bg-panel p-3 space-y-2">
         <input
           type="text"
-          placeholder="Cerca per titolo o artista…"
+          placeholder="Cerca per titolo, artista o testo…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full px-3 py-2 rounded-md bg-bg border border-border focus:border-accent outline-none text-sm"
@@ -314,6 +326,7 @@ export function SongsExplorer({
               ? s.current_version[0]
               : s.current_version;
             const versionNumber = cv?.version_number;
+            const contentMatch = contentMatches.get(s.id) ?? null;
             const matchKey = normalizeMatchKey(s.title, s.artist);
             const isCanonical = s.church_id === null;
             const hasOtherScope = isCanonical
@@ -356,6 +369,7 @@ export function SongsExplorer({
                     {s.artist && (
                       <div className="text-xs text-zinc-500 truncate">{s.artist}</div>
                     )}
+                    {contentMatch && <SongSnippet match={contentMatch} />}
                   </div>
                   <div className="flex items-center flex-wrap gap-1.5 sm:flex-shrink-0 sm:justify-end">
                     <span
