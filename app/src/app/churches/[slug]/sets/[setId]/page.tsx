@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { SetEditor } from './set-editor';
 import { SetHeader } from './set-header';
 import { SharePanel } from './share-panel';
+import { PublicLinkPanel } from './public-link-panel';
 
 export default async function SetDetailPage({
   params,
@@ -46,29 +47,37 @@ export default async function SetDetailPage({
       : `/churches/${church.slug}/sets/${set.id}/view`;
 
   // Contents, picker and sharing panels are independent of each other.
-  const [itemsRes, songsRes, sharesRes, bandSharesRes, churchBandsRes] = await Promise.all([
-    supabase
-      .from('set_items')
-      .select(
-        'id, position, transpose_semitones, capo, variation_id, performance_notes, song:songs(id, title, artist, original_key, church_id)'
-      )
-      .eq('set_id', setId)
-      .order('position'),
-    supabase
-      .from('songs')
-      .select('id, title, artist, original_key, church_id')
-      .or(`church_id.eq.${church.id},church_id.is.null`)
-      .order('title'),
-    supabase
-      .from('set_shares')
-      .select('user_id, permission, user:users(email, display_name)')
-      .eq('set_id', setId),
-    supabase
-      .from('set_band_shares')
-      .select('band_id, permission, band:bands(id, name)')
-      .eq('set_id', setId),
-    supabase.from('bands').select('id, name').eq('church_id', church.id).order('name'),
-  ]);
+  const [itemsRes, songsRes, sharesRes, bandSharesRes, churchBandsRes, publicLinksRes] =
+    await Promise.all([
+      supabase
+        .from('set_items')
+        .select(
+          'id, position, transpose_semitones, capo, variation_id, performance_notes, song:songs(id, title, artist, original_key, church_id)'
+        )
+        .eq('set_id', setId)
+        .order('position'),
+      supabase
+        .from('songs')
+        .select('id, title, artist, original_key, church_id')
+        .or(`church_id.eq.${church.id},church_id.is.null`)
+        .order('title'),
+      supabase
+        .from('set_shares')
+        .select('user_id, permission, user:users(email, display_name)')
+        .eq('set_id', setId),
+      supabase
+        .from('set_band_shares')
+        .select('band_id, permission, band:bands(id, name)')
+        .eq('set_id', setId),
+      supabase.from('bands').select('id, name').eq('church_id', church.id).order('name'),
+      supabase
+        .from('set_public_links')
+        .select('id, token, expires_at, created_at')
+        .eq('set_id', setId)
+        .is('revoked_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false }),
+    ]);
 
   const shares = sharesRes.data;
   const bandShares = bandSharesRes.data;
@@ -122,6 +131,10 @@ export default async function SetDetailPage({
         items={itemsWithVariations}
         availableSongs={songs}
       />
+
+      {canBeMaster && (
+        <PublicLinkPanel setId={set.id} links={publicLinksRes.data ?? []} />
+      )}
 
       <SharePanel
         setId={set.id}

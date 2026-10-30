@@ -318,3 +318,35 @@ export async function updateSetItem(
   if (item) revalidatePath(`/churches/[slug]/sets/${item.set_id}`, 'page');
   return {};
 }
+
+/**
+ * A link anyone can open — no account, no permissions — that shows the same
+ * read-only projection the leader is driving. Meant to be pasted into a family
+ * chat; it stops working once it expires or is revoked.
+ */
+export async function createPublicSetLink(
+  setId: string,
+  days = 7
+): Promise<{ error?: string; token?: string; expiresAt?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('create_public_set_link', {
+    p_set_id: setId,
+    p_days: days,
+  });
+  if (error) return { error: friendlyError(error, 'Impossibile creare il link pubblico.') };
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return { error: 'Impossibile creare il link pubblico.' };
+  revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
+  return { token: row.token, expiresAt: row.expires_at };
+}
+
+export async function revokePublicSetLink(
+  setId: string,
+  linkId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('revoke_public_set_link', { p_link_id: linkId });
+  if (error) return { error: friendlyError(error, 'Impossibile revocare il link.') };
+  revalidatePath(`/churches/[slug]/sets/${setId}`, 'page');
+  return {};
+}
