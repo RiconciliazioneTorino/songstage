@@ -186,7 +186,12 @@ export function Master({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const [addingSongId, setAddingSongId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // null = follow the screen: open beside the song on tablet and desktop,
+  // closed on a phone where it would cover the song. Rendering from CSS
+  // until the user toggles avoids a flash of the drawer on first paint.
+  const [sidebarOpen, setSidebarOpen] = useState<boolean | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const [role, setRole] = useState<'connecting' | 'master' | 'viewer'>('connecting');
   // The console is for the active leader only. If we settle on 'viewer' —
   // because someone else grabbed control, we granted it away, or we landed
@@ -1042,6 +1047,43 @@ export function Master({
   }
   const isViewer = role === 'viewer';
 
+  const isPhone = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+  // Mirrors the md breakpoint for labels only; starts false so the server
+  // render and the first client render agree.
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setPhone(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  const sidebarShown = sidebarOpen ?? !phone;
+  function toggleSidebar() {
+    setToolsOpen(false);
+    setSidebarOpen((v) => !(v ?? !isPhone()));
+  }
+
+  // The Strumenti panel floats over the song: close it on a tap outside the
+  // bar or on Escape, like any other popover.
+  useEffect(() => {
+    if (!toolsOpen) return;
+    function onDown(e: PointerEvent) {
+      if (e.target instanceof Node && headerRef.current?.contains(e.target)) return;
+      setToolsOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setToolsOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [toolsOpen]);
+
   const canPrev = index > 0 && isMaster;
   const canNext = index < slidesLocal.length - 1 && isMaster;
   const goPrev = () => {
@@ -1208,43 +1250,47 @@ export function Master({
         } as React.CSSProperties
       }
     >
-      {/* On a phone this bar wrapped into eight stacked rows and ate most of
-          the screen. One row that scrolls sideways keeps every control
-          reachable and gives the song back its space. */}
+      {/* One row on every screen: back, setlist, song navigation and the
+          handful of live controls. Everything else lives in the Strumenti
+          panel that drops under the bar, so a phone or a tablet keeps the
+          screen for the song. Only very wide screens show the tools inline. */}
       <div
+        ref={headerRef}
         data-no-print
-        className="border-b border-border bg-panel p-3 flex gap-3 items-center max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:[&>*]:shrink-0 sm:flex-wrap"
+        className="relative z-30 border-b border-border bg-panel"
         style={{
-          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
-          paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
-          paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
         }}
         data-viewer={isViewer ? '1' : undefined}
       >
+        <div className="flex items-center gap-2 px-3 py-2">
         <Link
           href={`/churches/${slug}/sets/${setId}`}
-          className="text-sm text-zinc-400 hover:text-white"
+          className="h-10 min-w-[2.5rem] shrink flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white"
+          title={setName}
         >
-          ← {setName}
+          <span aria-hidden>←</span>
+          <span className="hidden sm:block truncate max-w-[10rem] lg:max-w-[16rem]">{setName}</span>
+          <span className="sr-only sm:hidden">{setName}</span>
         </Link>
         <button
-          onClick={() => setSidebarOpen((v) => !v)}
-          className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
-          aria-label={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
-          title={sidebarOpen ? 'Nascondi scaletta' : 'Mostra scaletta'}
+          onClick={toggleSidebar}
+          className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center shrink-0"
+          aria-label={sidebarShown ? 'Nascondi scaletta' : 'Mostra scaletta'}
+          aria-pressed={sidebarShown}
+          title={sidebarShown ? 'Nascondi scaletta' : 'Mostra scaletta'}
         >
           ☰
         </button>
 
-        <div
-          className={`flex flex-wrap gap-3 items-center flex-1 ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`}
-        >
-
+        <div className={`flex items-center gap-3 shrink-0 ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`}>
         <div className="flex items-center gap-1">
           <button
             disabled={index === 0}
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
           >
             ◀
           </button>
@@ -1254,33 +1300,70 @@ export function Master({
           <button
             disabled={index === slidesLocal.length - 1}
             onClick={() => setIndex((i) => Math.min(slidesLocal.length - 1, i + 1))}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent disabled:opacity-30 text-lg leading-none flex items-center justify-center"
           >
             ▶
           </button>
         </div>
-
+          <div className="hidden sm:flex">
         <div className="flex items-center gap-1" title="Trasposizione">
           <button
             onClick={() => bumpTranspose(-1)}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Abbassa di un semitono"
           >
             ♭
           </button>
-          <span className="text-sm h-9 px-2 rounded-full bg-bg border border-border min-w-[3rem] text-center font-mono flex items-center justify-center">
+          <span className="text-sm h-10 px-2 rounded-full bg-bg border border-border min-w-[3rem] text-center font-mono flex items-center justify-center">
             {totalSemitones >= 0 ? '+' : ''}
             {totalSemitones}
           </span>
           <button
             onClick={() => bumpTranspose(1)}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
             title="Alza di un semitono"
           >
             ♯
           </button>
         </div>
+          </div>
+        </div>
 
+        <div
+          id="set-tools"
+          className={`${
+            toolsOpen ? 'flex flex-col md:grid md:grid-cols-2' : 'hidden'
+          } 2xl:flex 2xl:flex-row 2xl:items-center gap-x-6 gap-y-3 max-2xl:absolute max-2xl:inset-x-0 max-2xl:top-full max-2xl:border-b max-2xl:border-border max-2xl:bg-panel max-2xl:shadow-2xl max-2xl:p-4`}
+        >
+          <div className={`flex flex-wrap items-center gap-2 max-2xl:relative max-2xl:pl-[5.5rem] sm:hidden ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`}>
+            <span className="2xl:hidden absolute left-0 top-0 h-10 flex items-center text-[11px] uppercase tracking-wide text-zinc-500">
+              Tonalità
+            </span>
+        <div className="flex items-center gap-1" title="Trasposizione">
+          <button
+            onClick={() => bumpTranspose(-1)}
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            title="Abbassa di un semitono"
+          >
+            ♭
+          </button>
+          <span className="text-sm h-10 px-2 rounded-full bg-bg border border-border min-w-[3rem] text-center font-mono flex items-center justify-center">
+            {totalSemitones >= 0 ? '+' : ''}
+            {totalSemitones}
+          </span>
+          <button
+            onClick={() => bumpTranspose(1)}
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-xl leading-none flex items-center justify-center"
+            title="Alza di un semitono"
+          >
+            ♯
+          </button>
+        </div>
+          </div>
+          <div className={`flex flex-wrap items-center gap-2 max-2xl:relative max-2xl:pl-[5.5rem] ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`}>
+            <span className="2xl:hidden absolute left-0 top-0 h-10 flex items-center text-[11px] uppercase tracking-wide text-zinc-500">
+              Testo
+            </span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => {
@@ -1288,7 +1371,7 @@ export function Master({
               setFitWidth(false);
               setFontScale((f) => Math.max(0.6, f - 0.1));
             }}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Diminuisci carattere su questo schermo"
           >
             A−
@@ -1298,7 +1381,7 @@ export function Master({
               setFitWidth(false);
               setFontScale((f) => Math.min(3, f + 0.1));
             }}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
             title="Ingrandisci carattere su questo schermo"
           >
             A+
@@ -1306,7 +1389,7 @@ export function Master({
           <button
             onClick={() => setFitWidth((v) => !v)}
             aria-pressed={fitWidth}
-            className={`min-w-[2.25rem] h-9 rounded-full border text-sm flex items-center justify-center ${
+            className={`min-w-[2.5rem] h-10 rounded-full border text-sm flex items-center justify-center ${
               fitWidth
                 ? 'border-accent text-accent'
                 : 'border-border hover:border-accent text-zinc-400'
@@ -1316,30 +1399,18 @@ export function Master({
             ⇔
           </button>
         </div>
-
-        {isMaster && (
-          <div className="flex items-center gap-1" title="Carattere sullo schermo di proiezione">
-            <span className="text-xs text-zinc-500 px-1">📽</span>
-            <button
-              onClick={() => setProjectorFontScale((f) => Math.max(0.6, f - 0.1))}
-              className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-              title="Rimpicciolisci la proiezione"
-            >
-              A−
-            </button>
-            <span className="text-xs h-9 px-1 min-w-[2.5rem] text-center font-mono flex items-center justify-center text-zinc-400">
-              {Math.round(projectorFontScale * 100)}%
-            </span>
-            <button
-              onClick={() => setProjectorFontScale((f) => Math.min(3, f + 0.1))}
-              className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-              title="Ingrandisci la proiezione"
-            >
-              A+
-            </button>
-          </div>
-        )}
-
+        <button
+          onClick={() => setShowChords((v) => !v)}
+          className={`min-w-[2.5rem] h-10 rounded-full border text-xl leading-none flex items-center justify-center ${
+            showChords
+              ? 'border-accent text-accent'
+              : 'border-border text-zinc-500 hover:border-accent'
+          }`}
+          title={showChords ? 'Nascondi accordi' : 'Mostra accordi'}
+          aria-pressed={showChords}
+        >
+          ♪
+        </button>
         {slide.availableVariations.length > 0 && (
           <select
             value={slide.variationId ?? ''}
@@ -1368,7 +1439,7 @@ export function Master({
               }
               router.refresh();
             }}
-            className="h-9 rounded border border-border bg-bg text-sm px-2 max-w-[10rem]"
+            className="h-10 rounded border border-border bg-bg text-sm px-2 max-w-[10rem]"
             title="Variante usata"
           >
             <option value="">Base</option>
@@ -1381,54 +1452,9 @@ export function Master({
             ))}
           </select>
         )}
-
-        <button
-          onClick={() => setShowChords((v) => !v)}
-          className={`min-w-[2.25rem] h-9 rounded-full border text-xl leading-none flex items-center justify-center ${
-            showChords
-              ? 'border-accent text-accent'
-              : 'border-border text-zinc-500 hover:border-accent'
-          }`}
-          title={showChords ? 'Nascondi accordi' : 'Mostra accordi'}
-          aria-pressed={showChords}
-        >
-          ♪
-        </button>
-
-        <div className="flex items-center gap-1" title="Metronomo">
-          <button
-            onClick={() => bumpBpm(-1)}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="BPM -1"
-          >
-            −
-          </button>
-          <button
-            onClick={toggleMetronome}
-            className={`h-9 px-2 rounded-full border text-sm font-mono flex items-center justify-center min-w-[5rem] ${
-              metronomeRunning
-                ? 'border-accent text-accent'
-                : 'border-border text-zinc-300 hover:border-accent'
-            }`}
-            title={metronomeRunning ? 'Ferma metronomo' : 'Avvia metronomo'}
-            aria-pressed={metronomeRunning}
-          >
-            {metronomeRunning ? '■' : '▶'} {metronomeBpm}
-          </button>
-          <button
-            onClick={() => bumpBpm(1)}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
-            title="BPM +1"
-          >
-            +
-          </button>
-        </div>
-
-        <span className="flex-1" />
-
         {slide.isCanonical && !slide.variationId ? (
           <span
-            className="min-w-[2.25rem] h-9 rounded-full border border-border text-lg leading-none flex items-center justify-center opacity-40 cursor-not-allowed"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border text-lg leading-none flex items-center justify-center opacity-40 cursor-not-allowed"
             title="Canzone canonica: la tonalità si cambia qui, il testo si modifica nella libreria o adottandola per la chiesa"
             aria-disabled
           >
@@ -1441,19 +1467,75 @@ export function Master({
               setEditError(null);
               setEditing(true);
             }}
-            className="min-w-[2.25rem] h-9 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-lg leading-none flex items-center justify-center"
             title="Modifica testo canzone"
           >
             ✎
           </button>
         )}
-
+          </div>
+          {isMaster && (
+          <div className={`flex flex-wrap items-center gap-2 max-2xl:relative max-2xl:pl-[5.5rem] ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`}>
+            <span className="2xl:hidden absolute left-0 top-0 h-10 flex items-center text-[11px] uppercase tracking-wide text-zinc-500">
+              Proiezione
+            </span>
+          <div className="flex items-center gap-1" title="Carattere sullo schermo di proiezione">
+            <button
+              onClick={() => setProjectorFontScale((f) => Math.max(0.6, f - 0.1))}
+              className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+              title="Rimpicciolisci la proiezione"
+            >
+              A−
+            </button>
+            <span className="text-xs h-10 px-1 min-w-[2.5rem] text-center font-mono flex items-center justify-center text-zinc-400">
+              {Math.round(projectorFontScale * 100)}%
+            </span>
+            <button
+              onClick={() => setProjectorFontScale((f) => Math.min(3, f + 0.1))}
+              className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+              title="Ingrandisci la proiezione"
+            >
+              A+
+            </button>
+          </div>
+          </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 max-2xl:relative max-2xl:pl-[5.5rem]">
+            <span className="2xl:hidden absolute left-0 top-0 h-10 flex items-center text-[11px] uppercase tracking-wide text-zinc-500">
+              Tempo
+            </span>
+        <div className={`flex items-center gap-1 ${isViewer ? 'opacity-60 pointer-events-none select-none' : ''}`} title="Metronomo">
+          <button
+            onClick={() => bumpBpm(-1)}
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+            title="BPM -1"
+          >
+            −
+          </button>
+          <button
+            onClick={toggleMetronome}
+            className={`h-10 px-2 rounded-full border text-sm font-mono flex items-center justify-center min-w-[5rem] ${
+              metronomeRunning
+                ? 'border-accent text-accent'
+                : 'border-border text-zinc-300 hover:border-accent'
+            }`}
+            title={metronomeRunning ? 'Ferma metronomo' : 'Avvia metronomo'}
+            aria-pressed={metronomeRunning}
+          >
+            {metronomeRunning ? '■' : '▶'} {metronomeBpm}
+          </button>
+          <button
+            onClick={() => bumpBpm(1)}
+            className="min-w-[2.5rem] h-10 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center"
+            title="BPM +1"
+          >
+            +
+          </button>
         </div>
-
         <button
           type="button"
           onClick={() => setEmitMetronome((v) => !v)}
-          className={`h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
+          className={`h-10 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
             emitMetronome
               ? 'border-accent text-accent'
               : 'border-border text-zinc-500 hover:border-accent'
@@ -1472,11 +1554,15 @@ export function Master({
         >
           <MetronomeIcon on={emitMetronome} />
         </button>
-
+          </div>
+          <div className="flex flex-wrap items-center gap-2 max-2xl:relative max-2xl:pl-[5.5rem]">
+            <span className="2xl:hidden absolute left-0 top-0 h-10 flex items-center text-[11px] uppercase tracking-wide text-zinc-500">
+              Audio
+            </span>
         <button
           type="button"
           onClick={() => setReceiveSharedAudio((v) => !v)}
-          className={`relative h-9 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
+          className={`relative h-10 px-2 rounded-full border text-lg leading-none flex items-center justify-center ${
             receiveSharedAudio && !audioClaimedElsewhere
               ? 'border-accent text-accent'
               : receiveSharedAudio && audioClaimedElsewhere
@@ -1494,7 +1580,6 @@ export function Master({
         >
           🎧
         </button>
-
         <MixerButton
           metronomeVolume={metronomeVolume}
           onMetronomeVolumeChange={setMetronomeVolume}
@@ -1503,13 +1588,18 @@ export function Master({
           metronomeAvailable={emitMetronome}
           ytAvailable={receiveSharedAudio && !audioClaimedElsewhere}
           openDirection="down"
+          align="left"
         />
-
+          </div>
+          <div className="flex flex-wrap items-center gap-2 max-2xl:relative max-2xl:pl-[5.5rem]">
+            <span className="2xl:hidden absolute left-0 top-0 h-10 flex items-center text-[11px] uppercase tracking-wide text-zinc-500">
+              Vista
+            </span>
         <div className="relative">
           <button
             type="button"
             onClick={() => setColorPickerOpen((v) => !v)}
-            className="h-9 px-2 rounded-full border border-border hover:border-accent flex items-center gap-1"
+            className="h-10 px-2 rounded-full border border-border hover:border-accent flex items-center gap-1"
             title="Colori di accordi e sezioni"
             aria-expanded={colorPickerOpen}
           >
@@ -1523,7 +1613,7 @@ export function Master({
             />
           </button>
           {colorPickerOpen && (
-            <div className="absolute right-0 top-10 z-30 w-64 bg-panel border border-border rounded-md shadow-lg p-3 space-y-3">
+            <div className="absolute left-0 2xl:left-auto 2xl:right-0 top-12 z-50 w-64 bg-panel border border-border rounded-md shadow-lg p-3 space-y-3">
               <div>
                 <label className="text-xs text-zinc-400 flex items-center justify-between mb-1">
                   <span>Accordi</span>
@@ -1540,7 +1630,7 @@ export function Master({
                     type="color"
                     value={chordColor}
                     onChange={(e) => setChordColor(e.target.value)}
-                    className="w-9 h-9 bg-transparent border border-border rounded cursor-pointer"
+                    className="w-9 h-10 bg-transparent border border-border rounded cursor-pointer"
                   />
                   <input
                     type="text"
@@ -1566,7 +1656,7 @@ export function Master({
                     type="color"
                     value={sectionColor}
                     onChange={(e) => setSectionColor(e.target.value)}
-                    className="w-9 h-9 bg-transparent border border-border rounded cursor-pointer"
+                    className="w-9 h-10 bg-transparent border border-border rounded cursor-pointer"
                   />
                   <input
                     type="text"
@@ -1582,22 +1672,21 @@ export function Master({
             </div>
           )}
         </div>
-
         <button
           type="button"
           disabled={exportingPdf}
           onClick={() => setExportingPdf(true)}
-          className="h-9 px-2 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
+          className="h-10 px-2 rounded-full border border-border hover:border-accent text-sm flex items-center justify-center disabled:opacity-50"
           title="Scarica la scaletta in PDF (fondo bianco, accordi rossi, sezioni verdi)"
         >
           {exportingPdf ? '…' : 'PDF'}
         </button>
-
+            <div className="sm:hidden">
         <a
           href={projectorUrl}
           target="_blank"
           rel="noreferrer"
-          className="h-9 px-3 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm flex items-center gap-1.5"
+          className="h-10 px-3 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm flex items-center gap-1.5"
           title="Apri la vista proiettore in una nuova finestra per il video"
         >
           <svg
@@ -1615,6 +1704,56 @@ export function Master({
           </svg>
           Proietta
         </a>
+            </div>
+          </div>
+        </div>
+
+        <span className="flex-1" />
+
+        <div className="hidden sm:block shrink-0">
+        <a
+          href={projectorUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="h-10 px-3 rounded-full border border-accent text-accent hover:bg-accent/10 text-sm flex items-center gap-1.5"
+          aria-label="Proietta"
+          title="Apri la vista proiettore in una nuova finestra per il video"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+            aria-hidden
+          >
+            <rect x="2" y="4" width="20" height="13" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          <span className="hidden md:inline">Proietta</span>
+        </a>
+        </div>
+        <button
+          type="button"
+          onClick={() => setToolsOpen((v) => !v)}
+          aria-expanded={toolsOpen}
+          aria-controls="set-tools"
+          className={`2xl:hidden h-10 min-w-[2.5rem] px-2.5 rounded-full border text-sm flex items-center justify-center gap-1.5 shrink-0 ${
+            toolsOpen ? 'border-accent text-accent' : 'border-border text-zinc-300 hover:border-accent'
+          }`}
+          title="Strumenti"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-4 h-4" aria-hidden>
+            <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" />
+            <circle cx="16" cy="6" r="2" />
+            <circle cx="10" cy="12" r="2" />
+            <circle cx="18" cy="18" r="2" />
+          </svg>
+          <span className="hidden md:inline">Strumenti</span>
+        </button>
+        </div>
       </div>
 
       {isViewer && (
@@ -1668,7 +1807,17 @@ export function Master({
 
       <div data-no-print className="flex-1 flex overflow-hidden relative">
         {sidebarOpen && (
-          <aside className="w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0 max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-20 max-sm:bg-panel max-sm:shadow-2xl">
+          <button
+            type="button"
+            aria-label="Chiudi scaletta"
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden absolute inset-0 z-10 bg-black/50"
+          />
+        )}
+        {sidebarOpen !== false && (
+          <aside
+            className={`${sidebarOpen === null ? 'hidden md:block' : ''} w-56 border-r border-border bg-panel/50 overflow-auto flex-shrink-0 max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-20 max-md:w-72 max-md:max-w-[85vw] max-md:bg-panel max-md:shadow-2xl`}
+          >
             {reorderError && (
               <div className="m-2 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-300">
                 {reorderError}
@@ -1694,7 +1843,11 @@ export function Master({
                       // Only the leader reorders: a viewer dragging would
                       // desync their screen from everyone else's.
                       draggable={isMaster}
-                      onSelect={() => setIndex(i)}
+                      onSelect={() => {
+                        setIndex(i);
+                        // On a phone the drawer covers the song: get out of the way.
+                        if (isPhone()) setSidebarOpen(false);
+                      }}
                     />
                   ))}
                   {isMaster && (
@@ -1737,7 +1890,7 @@ export function Master({
           >
             <div
               ref={fitRef}
-              className="max-w-3xl mx-auto w-full p-8 px-16 md:px-20"
+              className="max-w-3xl mx-auto w-full px-5 py-5 sm:p-8 sm:px-16 md:px-20"
             >
               {(() => {
                 // Which link + title the panel reflects:

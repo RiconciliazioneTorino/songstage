@@ -19,6 +19,7 @@ export function MixerButton({
   showMetronome = true,
   showYoutube = true,
   openDirection = 'up',
+  align = 'right',
 }: {
   metronomeVolume: number;
   onMetronomeVolumeChange: (v: number) => void;
@@ -32,6 +33,9 @@ export function MixerButton({
    *  cluster at the bottom; `down` suits a top toolbar (otherwise the popover
    *  overflows above the viewport). */
   openDirection?: 'up' | 'down';
+  /** Which edge of the trigger the popover lines up with. `left` keeps it on
+   *  screen when the trigger sits near the left edge (e.g. in a panel). */
+  align?: 'left' | 'right';
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -65,7 +69,7 @@ export function MixerButton({
       </button>
       {open && (
         <div
-          className={`absolute right-0 w-60 rounded-md border border-border bg-panel shadow-2xl p-3 space-y-3 z-50 ${
+          className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} w-60 rounded-md border border-border bg-panel shadow-2xl p-3 space-y-3 z-50 ${
             openDirection === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'
           }`}
           role="dialog"
